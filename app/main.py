@@ -39,7 +39,13 @@ async def lifespan(_: FastAPI):
     db.init()
     scheduler.start()
     _reschedule()
-    asyncio.create_task(engine.scan_all())  # primer escaneo al arrancar
+    async def first_scan():
+        # Se espera a que Render valide el health check: si Chromium arranca antes,
+        # se come la RAM del plan free y el servicio muere sin abrir el puerto.
+        await asyncio.sleep(45)
+        await engine.scan_all()
+
+    asyncio.create_task(first_scan())
     yield
     scheduler.shutdown(wait=False)
     await stop_all()
