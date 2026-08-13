@@ -70,7 +70,7 @@ async def scan_watch(watch: dict) -> dict:
         if db.should_alert(key, h["price"], cooldown):
             to_alert.append((key, h))
     if to_alert:
-        sent = notify.notify(watch, [h for _, h in to_alert])
+        sent = await notify.notify(watch, [h for _, h in to_alert])
         if any(r.endswith(": ok") for r in sent):
             for key, h in to_alert:
                 db.mark_alert(key, h["price"])

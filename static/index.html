@@ -34,9 +34,22 @@
   <dialog id="cfg">
     <form id="cfgForm" method="dialog">
       <h2>Alertas</h2>
-      <label class="full">Números de WhatsApp — una línea por persona: <code>telefono|apikey</code></label>
-      <textarea name="wa_recipients" rows="3" placeholder="+573054305869|123456&#10;+573009876543|654321"></textarea>
-      <p class="muted small">Cada quien pide su apikey: guarda el <b>+34 644 51 95 23</b> en contactos y mándale por WhatsApp <b>“I allow callmebot to send me messages”</b>.</p>
+
+      <div id="waBox" class="wabox">
+        <div class="warow">
+          <span id="waDot" class="dot"></span>
+          <span id="waTxt">Comprobando WhatsApp…</span>
+          <span class="grow"></span>
+          <button class="btn mini" id="btnWa" type="button">Conectar</button>
+        </div>
+        <div id="waQr" class="qr" hidden>
+          <img id="waImg" alt="Código QR de WhatsApp">
+          <p class="muted small">En tu celular: <b>WhatsApp → Ajustes → Dispositivos vinculados → Vincular dispositivo</b>, y escanea este código.</p>
+        </div>
+      </div>
+
+      <label class="full">¿A quién le aviso? Un número por línea</label>
+      <textarea name="wa_recipients" rows="3" placeholder="+573054305869&#10;+573009876543"></textarea>
       <div class="grid2">
         <label>Revisar cada (min)<input name="scan_interval_min" type="number" min="15" step="5"></label>
         <label>No repetir alerta (h)<input name="alert_cooldown_h" type="number" min="1"></label>

@@ -144,6 +144,13 @@ dialog::backdrop { background: #000a; backdrop-filter: blur(3px); }
 #cfgForm { display: block; }
 #cfgForm h2 { margin: 0 0 14px; font-size: 18px; }
 label.full { display: block; margin-bottom: 6px; }
+.wabox { background: var(--panel2); border: 1px solid var(--line); border-radius: 12px; padding: 12px; margin-bottom: 14px; }
+.warow { display: flex; align-items: center; gap: 9px; font-size: 14px; }
+.dot { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); flex: none; }
+.dot.on { background: var(--good); box-shadow: 0 0 0 4px #34d39926; }
+.dot.wait { background: var(--warn); box-shadow: 0 0 0 4px #fbbf2426; }
+.qr { text-align: center; margin-top: 12px; }
+.qr img { width: 230px; max-width: 100%; background: #fff; padding: 10px; border-radius: 12px; }
 .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
 
 /* ---------- móvil ---------- */

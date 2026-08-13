@@ -157,6 +157,41 @@ $("#btnScan").addEventListener("click", async () => {
   $("#lastScan").textContent = "buscando vuelos…";
 });
 
+// ---- WhatsApp: vinculación por QR ----
+function paintWa(s) {
+  const dot = $("#waDot"), txt = $("#waTxt"), btn = $("#btnWa");
+  dot.className = "dot" + (s.status === "conectado" ? " on" : s.status === "esperando_qr" ? " wait" : "");
+  txt.textContent =
+    s.status === "conectado"
+      ? "WhatsApp vinculado"
+      : s.status === "esperando_qr"
+        ? "Escanea el código con tu celular"
+        : "WhatsApp sin vincular";
+  btn.textContent = s.status === "conectado" ? "Revincular" : "Conectar";
+  btn.disabled = false;
+  const box = $("#waQr");
+  if (s.qr) {
+    $("#waImg").src = s.qr;
+    box.hidden = false;
+  } else {
+    box.hidden = true;
+  }
+}
+
+async function connectWa() {
+  const btn = $("#btnWa");
+  btn.disabled = true;
+  btn.textContent = "Abriendo…";
+  paintWa(await api("/api/whatsapp/connect", { method: "POST" }));
+  // se queda esperando el escaneo, refrescando el QR si vence
+  for (let i = 0; i < 4; i++) {
+    const s = await api("/api/whatsapp/pair", { method: "POST" });
+    paintWa(s);
+    if (s.status === "conectado") return;
+  }
+}
+$("#btnWa").addEventListener("click", connectWa);
+
 $("#btnCfg").addEventListener("click", async () => {
   const s = await api("/api/settings");
   for (const [k, v] of Object.entries(s)) {
@@ -165,6 +200,7 @@ $("#btnCfg").addEventListener("click", async () => {
   }
   $("#cfgMsg").textContent = "";
   $("#cfg").showModal();
+  paintWa(await api("/api/whatsapp"));
 });
 $("#btnSaveCfg").addEventListener("click", async () => {
   await api("/api/settings", { method: "POST", body: Object.fromEntries(new FormData($("#cfgForm"))) });

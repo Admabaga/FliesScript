@@ -26,8 +26,9 @@ class Browser:
         cuyo Imperva redirige a la home a Playwright estandar.
     """
 
-    def __init__(self, engine: str = "playwright"):
+    def __init__(self, engine: str = "playwright", profile: str | None = None):
         self.engine = engine
+        self.profile = profile or engine
         self._pw = None
         self._ctx = None
 
@@ -56,7 +57,7 @@ class Browser:
             args.append("--disable-blink-features=AutomationControlled")
             kwargs["user_agent"] = UA  # patchright pierde stealth si se fuerza la UA
 
-        profile = os.path.join(PROFILE_ROOT, self.engine)
+        profile = os.path.join(PROFILE_ROOT, self.profile)
         os.makedirs(profile, exist_ok=True)
         self._pw = await async_playwright().start()
         self._ctx = await self._pw.chromium.launch_persistent_context(

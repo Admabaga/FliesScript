@@ -8,7 +8,7 @@ from fastapi import Body, FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import db, engine, notify
+from . import db, engine, notify, whatsapp
 from .config import SECRET_KEYS
 from .scrapers import NAMES
 from .scrapers.base import stop_all
@@ -43,6 +43,7 @@ async def lifespan(_: FastAPI):
     yield
     scheduler.shutdown(wait=False)
     await stop_all()
+    await whatsapp.stop()
 
 
 app = FastAPI(title="Flight", lifespan=lifespan)
@@ -113,10 +114,27 @@ async def post_settings(payload: dict = Body(...)):
 @app.post("/api/test-alert")
 async def test_alert():
     return {
-        "results": notify.send_whatsapp(
+        "results": await notify.send_message(
             "✈️ Flight — mensaje de prueba. Si lees esto, las alertas funcionan."
         )
     }
+
+
+@app.get("/api/whatsapp")
+async def whatsapp_status():
+    return whatsapp.STATE
+
+
+@app.post("/api/whatsapp/connect")
+async def whatsapp_connect():
+    """Abre WhatsApp Web y devuelve el QR para escanear desde el celular."""
+    return await whatsapp.refresh_state()
+
+
+@app.post("/api/whatsapp/pair")
+async def whatsapp_pair():
+    """Espera a que se escanee el QR (o lo refresca si vence)."""
+    return await whatsapp.wait_for_pairing()
 
 
 app.mount("/static", StaticFiles(directory=STATIC), name="static")

@@ -50,22 +50,36 @@ Abre http://localhost:8010
 
 ## Configurar WhatsApp
 
-Se usa [CallMeBot](https://www.callmebot.com/blog/free-api-whatsapp-messages/):
-gratis y sin crear cuenta. **La apikey es por teléfono**, así que cada persona
-pide la suya desde su propio WhatsApp:
+Los mensajes salen **desde tu propio WhatsApp**, igual que WhatsApp Web:
 
-1. Guarda el **+34 644 51 95 23** en contactos.
-2. Mándale: `I allow callmebot to send me messages`
-3. Te responde con tu apikey.
+1. **⚙ Alertas → Conectar**. Aparece un código QR.
+2. En el celular: *WhatsApp → Ajustes → Dispositivos vinculados → Vincular
+   dispositivo*, y escanea.
+3. Escribe los números a avisar, uno por línea:
+   ```
+   +573054305869
+   +573009876543
+   ```
+4. **Guardar** → **Probar**.
 
-En el botón **⚙ Alertas** de la app, una línea por persona:
+No se guarda ninguna contraseña: la sesión vive en el perfil del navegador, como
+en el computador de cualquiera.
+
+> ⚠️ **En el plan free la sesión se pierde cuando Render reinicia el servicio**
+> (no hay disco persistente) y toca volver a escanear el QR. Si eso molesta:
+> agrega un disco (plan Starter) o usa el respaldo de abajo.
+
+### Respaldo: CallMeBot
+
+Si WhatsApp Web no está vinculado, la app usa
+[CallMeBot](https://www.callmebot.com/blog/free-api-whatsapp-messages/) para los
+números que tengan apikey. Cada persona pide la suya: guarda el
+**+34 644 51 95 23** y mándale `I allow callmebot to send me messages`. Luego se
+escribe así:
 
 ```
 +573054305869|123456
-+573009876543|654321
 ```
-
-El botón **Probar** manda un mensaje de prueba a todos los números.
 
 ## Desplegar en Render
 
