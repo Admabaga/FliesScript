@@ -1,8 +1,15 @@
 import os
+import re
 
 from dotenv import load_dotenv
 
 load_dotenv()
+
+
+def clean(name: str, default: str = "") -> str:
+    """Al pegar valores en el panel de Render se cuelan saltos de línea y espacios;
+    en una URL o un token eso revienta la petición."""
+    return re.sub(r"\s+", "", os.getenv(name, default))
 
 DB_PATH = os.getenv("DB_PATH", "data/flights.db")
 NAV_TIMEOUT_MS = int(os.getenv("NAV_TIMEOUT_MS", "60000"))
@@ -13,12 +20,12 @@ PORT = int(os.getenv("PORT", "8000"))
 HEADLESS = os.getenv("HEADLESS", "false").lower() != "false"
 
 # Clave compartida con el runner de GitHub Actions.
-INGEST_TOKEN = os.getenv("INGEST_TOKEN", "")
+INGEST_TOKEN = clean("INGEST_TOKEN")
 
 # Para pedirle a GitHub que corra el scraping ya (botón "Actualizar"). Opcional:
 # https://api.github.com/repos/USUARIO/REPO/actions/workflows/scrape.yml/dispatches
-SCRAPE_URL = os.getenv("SCRAPE_URL", "")
-GH_TOKEN = os.getenv("GH_TOKEN", "")  # token con permiso `workflow`
+SCRAPE_URL = clean("SCRAPE_URL")
+GH_TOKEN = clean("GH_TOKEN")  # token con permiso `workflow`
 
 # Valores por defecto de la configuracion editable desde la UI.
 SETTING_DEFAULTS = {
