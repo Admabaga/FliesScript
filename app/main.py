@@ -17,7 +17,19 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name
 log = logging.getLogger("app")
 
 STATIC = Path(__file__).resolve().parent.parent / "static"
-scheduler = AsyncIOScheduler(timezone="America/Bogota")
+
+
+def _scheduler() -> AsyncIOScheduler:
+    """Sin la base de zonas horarias del sistema, APScheduler revienta al arrancar.
+    El paquete tzdata la aporta; si aun asi faltara, mejor UTC que no arrancar."""
+    try:
+        return AsyncIOScheduler(timezone="America/Bogota")
+    except Exception as exc:  # noqa: BLE001
+        log.warning("Sin zona horaria America/Bogota (%s); se usa UTC", exc)
+        return AsyncIOScheduler(timezone="UTC")
+
+
+scheduler = _scheduler()
 
 
 def _reschedule():

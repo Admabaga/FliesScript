@@ -3,6 +3,7 @@ uvicorn[standard]==0.34.0
 apscheduler==3.11.0
 httpx==0.28.1
 python-dotenv==1.0.1
+tzdata==2024.2      # la imagen de Docker no trae la base de zonas horarias
 
 # Dos motores de navegador a proposito (ver README):
 #   patchright -> JetSMART   |   playwright -> Wingo y Avianca
