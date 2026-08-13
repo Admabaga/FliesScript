@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: flight
+    runtime: docker
+    plan: free            # se mantiene despierto con UptimeRobot -> /health
+    region: oregon
+    healthCheckPath: /health
+    # Sin disco: el plan free no lo soporta. Si el servicio se reinicia, la app
+    # repone las fechas desde el localStorage del navegador al abrirla.
+    envVars:
+      - key: DB_PATH
+        value: /tmp/flight/flights.db
+      - key: SCAN_INTERVAL_MIN
+        value: "60"
+      - key: ALERT_COOLDOWN_H
+        value: "8"
+      - key: HEADLESS
+        value: "false"   # con xvfb; en headless Avianca devuelve 403
+      # Se carga desde el dashboard de Render (o desde la UI de la app)
+      - key: WA_RECIPIENTS
+        sync: false

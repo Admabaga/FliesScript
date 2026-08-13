@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0b1020">
+  <title>Flight</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✈️</text></svg>">
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <header>
+    <div class="brand"><span class="plane">✈</span>Flight</div>
+    <button id="btnScan" class="btn" title="Buscar ahora">↻<span class="lbl"> Actualizar</span></button>
+    <button id="btnCfg" class="btn ghost" title="Alertas">⚙<span class="lbl"> Alertas</span></button>
+  </header>
+  <div id="lastScan" class="scanbar muted">—</div>
+
+  <main>
+    <section class="card">
+      <form id="watchForm">
+        <label>Origen<select name="origin" required></select></label>
+        <label>Destino<select name="destination" required></select></label>
+        <label>Fecha<input name="date" type="date" required></label>
+        <label>Avísame si baja de<input name="max_price" type="text" inputmode="numeric" class="money" value="200.000" required></label>
+        <button class="btn primary wide" type="submit">Agregar fecha</button>
+      </form>
+    </section>
+
+    <div id="watches"></div>
+    <p id="empty" class="muted center">Aún no hay fechas. Agrega la primera arriba.</p>
+  </main>
+
+  <dialog id="cfg">
+    <form id="cfgForm" method="dialog">
+      <h2>Alertas</h2>
+      <label class="full">Números de WhatsApp — una línea por persona: <code>telefono|apikey</code></label>
+      <textarea name="wa_recipients" rows="3" placeholder="+573054305869|123456&#10;+573009876543|654321"></textarea>
+      <p class="muted small">Cada quien pide su apikey: guarda el <b>+34 644 51 95 23</b> en contactos y mándale por WhatsApp <b>“I allow callmebot to send me messages”</b>.</p>
+      <div class="grid2">
+        <label>Revisar cada (min)<input name="scan_interval_min" type="number" min="15" step="5"></label>
+        <label>No repetir alerta (h)<input name="alert_cooldown_h" type="number" min="1"></label>
+      </div>
+      <p id="cfgMsg" class="muted small"></p>
+      <div class="row">
+        <button class="btn" id="btnTest" type="button">Probar</button>
+        <span class="grow"></span>
+        <button class="btn ghost" value="cancel">Cerrar</button>
+        <button class="btn primary" id="btnSaveCfg" type="button">Guardar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="/static/airports.js"></script>
+  <script src="/static/app.js"></script>
+</body>
+</html>

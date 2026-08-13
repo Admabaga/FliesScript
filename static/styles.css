@@ -1,0 +1,158 @@
+:root {
+  --bg: #0b1020;
+  --panel: #141b31;
+  --panel2: #1c2540;
+  --line: #29344f;
+  --txt: #eef2ff;
+  --muted: #93a1c4;
+  --accent: #6c8cff;
+  --good: #34d399;
+  --warn: #fbbf24;
+  --bad: #fb7185;
+  --wingo: #b47cff;
+  --jetsmart: #ff6b81;
+  --avianca: #4cc9f0;
+  --r: 16px;
+  --pad: 14px;
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background:
+    radial-gradient(1100px 520px at 15% -10%, #1b2748 0%, transparent 60%),
+    radial-gradient(900px 460px at 95% 0%, #232048 0%, transparent 55%),
+    var(--bg);
+  background-attachment: fixed;
+  color: var(--txt);
+  font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* ---------- header ---------- */
+header {
+  position: sticky; top: 0; z-index: 20;
+  display: flex; align-items: center; gap: 8px;
+  padding: 12px var(--pad); padding-top: max(12px, env(safe-area-inset-top));
+  background: rgba(11, 16, 32, .82);
+  backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--line);
+}
+.brand {
+  font-weight: 800; font-size: 20px; letter-spacing: -.4px;
+  display: flex; align-items: center; gap: 8px; margin-right: auto;
+}
+.plane { color: var(--accent); font-size: 22px; }
+.scanbar { padding: 8px var(--pad) 0; font-size: 12px; text-align: right; }
+
+/* ---------- base ---------- */
+main { max-width: 1120px; margin: 0 auto; padding: 10px var(--pad) 40px; }
+.card {
+  background: var(--panel); border: 1px solid var(--line);
+  border-radius: var(--r); padding: var(--pad); margin-bottom: 16px;
+}
+.muted { color: var(--muted); }
+.small { font-size: 13px; }
+.center { text-align: center; }
+.grow { flex: 1; }
+.row { display: flex; align-items: center; gap: 10px; margin-top: 14px; }
+
+label { display: flex; flex-direction: column; gap: 5px; font-size: 12px; color: var(--muted); }
+input, textarea {
+  background: var(--panel2); border: 1px solid var(--line); color: var(--txt);
+  border-radius: 12px; padding: 12px; font-size: 16px; /* 16px evita el zoom en iOS */
+  width: 100%; font-family: inherit;
+}
+input.money { font-variant-numeric: tabular-nums; font-weight: 600; }
+textarea { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 14px; resize: vertical; }
+input:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+code { background: var(--panel2); padding: 2px 6px; border-radius: 6px; font-size: 12px; }
+
+.btn {
+  background: var(--panel2); color: var(--txt); border: 1px solid var(--line);
+  border-radius: 12px; padding: 11px 14px; cursor: pointer;
+  font-size: 15px; font-family: inherit; white-space: nowrap;
+}
+.btn:active { transform: scale(.97); }
+.btn.primary { background: var(--accent); color: #05091a; border-color: var(--accent); font-weight: 700; }
+.btn.ghost { background: transparent; }
+.btn.wide { width: 100%; }
+.btn.mini { padding: 7px 11px; font-size: 13px; border-radius: 10px; }
+
+/* ---------- formulario de alta ---------- */
+#watchForm { display: grid; gap: 10px; grid-template-columns: 1fr 1fr; }
+#watchForm label:nth-child(3), #watchForm label:nth-child(4), #watchForm button { grid-column: 1 / -1; }
+
+/* ---------- tarjeta de fecha ---------- */
+.watch {
+  background: var(--panel); border: 1px solid var(--line);
+  border-radius: var(--r); margin-bottom: 16px; overflow: hidden;
+}
+.watch.hit { border-color: var(--good); box-shadow: 0 0 0 1px var(--good) inset, 0 8px 30px -12px #34d39955; }
+.wh { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: var(--pad); background: var(--panel2); }
+.wh .route { font-weight: 800; font-size: 18px; letter-spacing: -.3px; }
+.wh .codes { font-size: 12px; letter-spacing: .5px; }
+.wh .date { color: var(--accent); font-weight: 700; font-size: 14px; }
+select {
+  background: var(--panel2); border: 1px solid var(--line); color: var(--txt);
+  border-radius: 12px; padding: 12px 32px 12px 12px; font-size: 16px; width: 100%;
+  font-family: inherit; appearance: none; text-overflow: ellipsis;
+  background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%),
+                    linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+  background-position: right 16px center, right 11px center;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+}
+select:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+.wh .acts { display: flex; gap: 6px; width: 100%; }
+.badge { font-size: 12px; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--line); background: #0d132a; }
+.badge.good { color: var(--good); border-color: #34d39955; }
+
+.airlines { display: grid; grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)); gap: 1px; background: var(--line); }
+.al { background: var(--panel); padding: 12px var(--pad); }
+.al h3 {
+  margin: 0 0 10px; font-size: 13px; text-transform: uppercase; letter-spacing: .8px;
+  display: flex; align-items: center; gap: 8px;
+}
+.al h3::before { content: ""; width: 8px; height: 8px; border-radius: 3px; background: var(--dot, var(--muted)); }
+.al[data-a="Wingo"]     { --dot: var(--wingo); }
+.al[data-a="JetSMART"]  { --dot: var(--jetsmart); }
+.al[data-a="Avianca"]   { --dot: var(--avianca); }
+.al h3 span { color: var(--dot); }
+
+.fl {
+  display: flex; align-items: baseline; gap: 8px;
+  padding: 9px 0; border-bottom: 1px solid #ffffff0d;
+}
+.fl:last-child { border-bottom: none; }
+.fl .time { font-variant-numeric: tabular-nums; font-size: 15px; }
+.fl .meta { font-size: 11px; color: var(--muted); }
+.fl .price { margin-left: auto; font-weight: 700; font-variant-numeric: tabular-nums; font-size: 15px; }
+.fl.under { background: linear-gradient(90deg, #34d39914, transparent); border-radius: 8px; padding-inline: 6px; }
+.fl.under .price { color: var(--good); }
+.fl.under .price::after { content: " 🔔"; }
+.al a { color: var(--accent); font-size: 13px; text-decoration: none; display: inline-block; margin-top: 10px; }
+
+/* ---------- diálogo ---------- */
+dialog {
+  border: 1px solid var(--line); border-radius: var(--r);
+  background: var(--panel); color: var(--txt);
+  width: min(560px, 94vw); padding: 18px; margin: auto;
+}
+dialog::backdrop { background: #000a; backdrop-filter: blur(3px); }
+#cfgForm { display: block; }
+#cfgForm h2 { margin: 0 0 14px; font-size: 18px; }
+label.full { display: block; margin-bottom: 6px; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
+
+/* ---------- móvil ---------- */
+@media (max-width: 640px) {
+  :root { --pad: 12px; }
+  .lbl { display: none; }
+  .brand { font-size: 18px; }
+  .airlines { grid-template-columns: 1fr; }
+  .wh .route { font-size: 17px; }
+  .grid2 { grid-template-columns: 1fr; }
+  .btn.mini { flex: 1; }
+}
