@@ -117,17 +117,21 @@ En el repo → **Settings → Secrets and variables → Actions → New secret**
 El workflow corre solo cada hora. Para probarlo ya: pestaña **Actions → Buscar
 vuelos → Run workflow**.
 
-### 3. Botón "Actualizar" de la app (opcional)
+### 3. Botón "Actualizar" de la app
 
-Para que el botón dispare el workflow, crea un
-[token de GitHub](https://github.com/settings/tokens) con permiso `workflow` y
-pon en Render:
+Crea un [token clásico de GitHub](https://github.com/settings/tokens/new) con el
+permiso **`workflow`** y ponlo en Render → Environment:
 
 ```
 SCRAPE_URL=https://api.github.com/repos/USUARIO/REPO/actions/workflows/scrape.yml/dispatches
+GH_TOKEN=<el token>
 ```
 
-Sin esto el botón no rompe nada: simplemente avisa que el runner corre cada hora.
+Con esto el botón dispara el workflow al instante (los precios llegan en ~3 min)
+y, además, la app se auto-recupera: si Render reinicia y la base queda vacía,
+pide una búsqueda sola al minuto de arrancar.
+
+Sin esto el botón no rompe nada: solo avisa que el runner corre cada 10 min.
 
 Notas:
 
@@ -139,9 +143,16 @@ Notas:
 
 ## Frecuencia
 
-Cada hora, definido en el `cron` de `.github/workflows/scrape.yml`. Bajar de 30
-minutos aumenta el riesgo de bloqueo (Avianca es la más sensible) y consume más
-minutos de Actions (el plan gratis da 2000/mes; una ronda gasta ~2).
+Cada 10 minutos, en el `cron` de `.github/workflows/scrape.yml`. Es gratis
+porque **en repos públicos los minutos de Actions son ilimitados** (en repos
+privados serían ~17.000 min/mes contra un tope de 2.000).
+
+Dos cosas que conviene saber:
+
+- GitHub no garantiza la hora exacta de los `cron`: cuando su cola está cargada
+  puede retrasarse 5-20 min. El botón **Actualizar** sí es inmediato.
+- Consultar tan seguido sube el riesgo de que un anti-bot bloquee. Si empiezas a
+  ver errores seguidos en una aerolínea, sube el intervalo a 20-30 min.
 
 `No repetir alerta (h)` evita recibir el mismo vuelo cada hora: solo vuelve a
 avisar si pasó ese tiempo **o** si el precio bajó todavía más.

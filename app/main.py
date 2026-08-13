@@ -3,13 +3,14 @@ import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 
+import httpx
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from fastapi import Body, FastAPI, Header, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from . import db, engine, notify, whatsapp
-from .config import INGEST_TOKEN, SCRAPE_URL
+from .config import GH_TOKEN, INGEST_TOKEN, SCRAPE_URL
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 log = logging.getLogger("app")
@@ -35,6 +36,7 @@ scheduler = _scheduler()
 async def lifespan(_: FastAPI):
     db.init()
     scheduler.start()
+    asyncio.create_task(rehydrate())
     yield
     scheduler.shutdown(wait=False)
     await whatsapp.stop()
@@ -101,16 +103,31 @@ async def del_watch(watch_id: int):
 async def trigger_scrape() -> dict:
     """Le pide a GitHub Actions que corra el scraping ahora, si está configurado."""
     if not SCRAPE_URL:
-        return {"started": False, "detalle": "el runner corre solo cada hora"}
-    import httpx
+        return {"started": False, "detalle": "el runner corre solo cada 10 min"}
 
+    headers = {"Accept": "application/vnd.github+json"}
+    if GH_TOKEN:
+        headers["Authorization"] = f"Bearer {GH_TOKEN}"
     try:
         async with httpx.AsyncClient(timeout=20) as c:
-            r = await c.post(SCRAPE_URL, json={"ref": "main"})
-        ok = r.status_code < 300
-        return {"started": ok, "detalle": None if ok else f"GitHub respondió {r.status_code}"}
+            r = await c.post(SCRAPE_URL, json={"ref": "main"}, headers=headers)
+        if r.status_code < 300:
+            return {"started": True, "detalle": "buscando… los precios llegan en ~3 min"}
+        if r.status_code in (401, 403):
+            return {"started": False, "detalle": "falta GH_TOKEN o no tiene permiso 'workflow'"}
+        return {"started": False, "detalle": f"GitHub respondió {r.status_code}"}
     except Exception as exc:  # noqa: BLE001
         return {"started": False, "detalle": str(exc)[:120]}
+
+
+async def rehydrate():
+    """Tras un reinicio de Render la base queda vacía (el plan free no tiene disco).
+    Si al minuto hay fechas sin precios, se le pide al runner que las llene."""
+    await asyncio.sleep(60)
+    watches = db.list_watches(only_active=True)
+    if watches and not any(db.get_flights(w["id"]) for w in watches):
+        log.info("Base vacía tras reiniciar: pidiendo al runner que busque")
+        await trigger_scrape()
 
 
 @app.post("/api/scan")

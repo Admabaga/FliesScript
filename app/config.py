@@ -18,6 +18,7 @@ INGEST_TOKEN = os.getenv("INGEST_TOKEN", "")
 # Para pedirle a GitHub que corra el scraping ya (botón "Actualizar"). Opcional:
 # https://api.github.com/repos/USUARIO/REPO/actions/workflows/scrape.yml/dispatches
 SCRAPE_URL = os.getenv("SCRAPE_URL", "")
+GH_TOKEN = os.getenv("GH_TOKEN", "")  # token con permiso `workflow`
 
 # Valores por defecto de la configuracion editable desde la UI.
 SETTING_DEFAULTS = {

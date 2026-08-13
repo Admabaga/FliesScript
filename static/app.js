@@ -144,7 +144,7 @@ $("#watches").addEventListener("click", async (e) => {
   if (act === "del" && confirm("¿Eliminar esta fecha?")) {
     await api(`/api/watches/${id}`, { method: "DELETE" });
   }
-  if (act === "scan") await api("/api/scan", { method: "POST" });
+  if (act === "scan") { const r = await api("/api/scan", { method: "POST" }); $("#lastScan").textContent = r.detalle || "buscando vuelos…"; }
   if (act === "edit") {
     const v = prompt("Avísame si baja de (COP):");
     if (v) await api(`/api/watches/${id}`, { method: "PATCH", body: { max_price: onlyDigits(v) } });
@@ -153,8 +153,9 @@ $("#watches").addEventListener("click", async (e) => {
 });
 
 $("#btnScan").addEventListener("click", async () => {
-  await api("/api/scan", { method: "POST" });
-  $("#lastScan").textContent = "buscando vuelos…";
+  $("#lastScan").textContent = "pidiendo búsqueda…";
+  const r = await api("/api/scan", { method: "POST" });
+  $("#lastScan").textContent = r.detalle || (r.started ? "buscando vuelos…" : "no se pudo pedir");
 });
 
 // ---- WhatsApp: vinculación por QR ----
