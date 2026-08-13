@@ -19,3 +19,10 @@ services:
       # Se carga desde el dashboard de Render (o desde la UI de la app)
       - key: WA_RECIPIENTS
         sync: false
+      # Clave compartida con GitHub Actions (el mismo valor en el secret INGEST_TOKEN)
+      - key: INGEST_TOKEN
+        generateValue: true
+      # Opcional: permite que el botón "Actualizar" dispare el workflow
+      # https://api.github.com/repos/USUARIO/REPO/actions/workflows/scrape.yml/dispatches
+      - key: SCRAPE_URL
+        sync: false

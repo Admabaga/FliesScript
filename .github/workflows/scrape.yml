@@ -1,0 +1,37 @@
+name: Buscar vuelos
+
+on:
+  schedule:
+    - cron: "17 * * * *" # cada hora (minuto 17 para no coincidir con el pico de GitHub)
+  workflow_dispatch: # y a mano desde el botón "Actualizar" de la app
+
+concurrency:
+  group: scrape
+  cancel-in-progress: false
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Instalar dependencias
+        run: |
+          pip install -r requirements.txt
+          pip install --no-deps playwright==1.49.1
+          python -m playwright install --with-deps chromium
+          python -m patchright install chromium
+
+      - name: Buscar vuelos y enviar resultados
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          INGEST_TOKEN: ${{ secrets.INGEST_TOKEN }}
+          HEADLESS: "false" # Avianca rechaza el modo headless; xvfb da la pantalla
+        # xvfb-run: pantalla virtual para que el navegador no corra en headless
+        run: xvfb-run -a --server-args="-screen 0 1280x800x24" python runner.py

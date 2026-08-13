@@ -5,19 +5,24 @@ from dotenv import load_dotenv
 load_dotenv()
 
 DB_PATH = os.getenv("DB_PATH", "data/flights.db")
-# Akamai (Avianca) detecta el modo headless y devuelve 403. En Docker se corre
-# con ventana sobre una pantalla virtual (xvfb), por eso el default es "false".
-HEADLESS = os.getenv("HEADLESS", "false").lower() != "false"
 NAV_TIMEOUT_MS = int(os.getenv("NAV_TIMEOUT_MS", "60000"))
 PORT = int(os.getenv("PORT", "8000"))
 
+# Akamai (Avianca) detecta el modo headless y devuelve 403. Tanto en Docker como
+# en GitHub Actions se corre con ventana sobre una pantalla virtual (xvfb).
+HEADLESS = os.getenv("HEADLESS", "false").lower() != "false"
+
+# Clave compartida con el runner de GitHub Actions.
+INGEST_TOKEN = os.getenv("INGEST_TOKEN", "")
+
+# Para pedirle a GitHub que corra el scraping ya (botón "Actualizar"). Opcional:
+# https://api.github.com/repos/USUARIO/REPO/actions/workflows/scrape.yml/dispatches
+SCRAPE_URL = os.getenv("SCRAPE_URL", "")
+
 # Valores por defecto de la configuracion editable desde la UI.
-# Todo esto se puede sobreescribir con variables de entorno en Render.
 SETTING_DEFAULTS = {
     "scan_interval_min": os.getenv("SCAN_INTERVAL_MIN", "60"),
     "alert_cooldown_h": os.getenv("ALERT_COOLDOWN_H", "8"),
-    # Una linea por persona: "+573054305869|123456" (telefono|apikey de CallMeBot).
+    # Un numero por linea: "+573054305869" (o "+573054305869|apikey" para CallMeBot).
     "wa_recipients": os.getenv("WA_RECIPIENTS", ""),
 }
-
-SECRET_KEYS: set[str] = set()

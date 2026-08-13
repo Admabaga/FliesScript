@@ -46,12 +46,22 @@ class Browser:
             # Sin esto, en macOS el perfil persistente pide la clave del llavero.
             "--use-mock-keychain",
             "--password-store=basic",
+            # Recortes de RAM: en el plan free de Render hay 512 MB para todo.
+            "--disable-gpu",
+            "--disable-software-rasterizer",
+            "--disable-extensions",
+            "--disable-background-networking",
+            "--disable-sync",
+            "--disable-translate",
+            "--mute-audio",
+            "--no-first-run",
+            "--js-flags=--max-old-space-size=256",
         ]
         kwargs = dict(
             headless=HEADLESS,
             locale="es-CO",
             timezone_id="America/Bogota",
-            viewport={"width": 1366, "height": 900},
+            viewport={"width": 1280, "height": 800},
         )
         if self.engine == "playwright":
             args.append("--disable-blink-features=AutomationControlled")

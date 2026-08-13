@@ -12,8 +12,8 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt \
  && pip install --no-cache-dir --no-deps playwright==1.49.1
 
-# La imagen base ya trae el Chromium de Playwright; patchright usa el suyo propio.
-RUN python -m patchright install chromium
+# En Render solo hace falta el Chromium de Playwright (ya viene en la imagen) para
+# WhatsApp Web. El scraping —y patchright— corren en GitHub Actions.
 
 COPY app ./app
 COPY static ./static

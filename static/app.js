@@ -144,7 +144,7 @@ $("#watches").addEventListener("click", async (e) => {
   if (act === "del" && confirm("¿Eliminar esta fecha?")) {
     await api(`/api/watches/${id}`, { method: "DELETE" });
   }
-  if (act === "scan") await api("/api/scan", { method: "POST", body: { watch_id: Number(id) } });
+  if (act === "scan") await api("/api/scan", { method: "POST" });
   if (act === "edit") {
     const v = prompt("Avísame si baja de (COP):");
     if (v) await api(`/api/watches/${id}`, { method: "PATCH", body: { max_price: onlyDigits(v) } });
@@ -153,7 +153,7 @@ $("#watches").addEventListener("click", async (e) => {
 });
 
 $("#btnScan").addEventListener("click", async () => {
-  await api("/api/scan", { method: "POST", body: {} });
+  await api("/api/scan", { method: "POST" });
   $("#lastScan").textContent = "buscando vuelos…";
 });
 
@@ -162,11 +162,12 @@ function paintWa(s) {
   const dot = $("#waDot"), txt = $("#waTxt"), btn = $("#btnWa");
   dot.className = "dot" + (s.status === "conectado" ? " on" : s.status === "esperando_qr" ? " wait" : "");
   txt.textContent =
-    s.status === "conectado"
+    s.detalle ||
+    (s.status === "conectado"
       ? "WhatsApp vinculado"
       : s.status === "esperando_qr"
         ? "Escanea el código con tu celular"
-        : "WhatsApp sin vincular";
+        : "WhatsApp sin vincular");
   btn.textContent = s.status === "conectado" ? "Revincular" : "Conectar";
   btn.disabled = false;
   const box = $("#waQr");
@@ -182,7 +183,9 @@ async function connectWa() {
   const btn = $("#btnWa");
   btn.disabled = true;
   btn.textContent = "Abriendo…";
-  paintWa(await api("/api/whatsapp/connect", { method: "POST" }));
+  const first = await api("/api/whatsapp/connect", { method: "POST" });
+  paintWa(first);
+  if (first.status === "ocupado") return;
   // se queda esperando el escaneo, refrescando el QR si vence
   for (let i = 0; i < 4; i++) {
     const s = await api("/api/whatsapp/pair", { method: "POST" });

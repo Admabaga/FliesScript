@@ -13,9 +13,24 @@ Vigila precios de vuelos en **Wingo**, **JetSMART** y **Avianca** y avisa por
 
 ## Cómo funciona
 
-No hay API usable: las tres aerolíneas están detrás de anti-bots (Cloudflare en
-Wingo, Imperva en JetSMART, Akamai en Avianca) que **también bloquean la simple
-consulta**, no solo la compra. Por eso se usa un navegador real headless.
+Está partida en dos, y por una razón concreta: el scraping necesita un navegador
+real, y un navegador no cabe en los 512 MB del plan free de Render.
+
+```
+GitHub Actions (cada hora)          Render (free)
+  abre las 3 aerolíneas    ──POST──▶  guarda, muestra
+  con Chromium + xvfb                 y manda los WhatsApp
+  7 GB RAM · CPU real                 sin Chromium para scrapear
+```
+
+- **`runner.py`** corre en Actions: pide las fechas a la app (`GET /api/pending`),
+  consulta las aerolíneas y devuelve lo que encontró (`POST /api/results`).
+- **La app en Render** solo guarda, pinta la interfaz y envía por WhatsApp Web.
+  Ahí sí abre un Chromium, pero uno solo y únicamente al enviar.
+
+No hay API usable en las aerolíneas: las tres están detrás de anti-bots
+(Cloudflare en Wingo, Imperva en JetSMART, Akamai en Avianca) que **también
+bloquean la simple consulta**, no solo la compra. De ahí el navegador.
 
 | Aerolínea | URL de búsqueda | Motor |
 |---|---|---|
@@ -81,28 +96,52 @@ escribe así:
 +573054305869|123456
 ```
 
-## Desplegar en Render
+## Desplegar
 
-1. Sube el repo a GitHub.
-2. Render → **New → Blueprint** → apunta a este repo. Lee `render.yaml`.
-3. En **Environment**, pon `WA_RECIPIENTS` (o configúralo luego desde la app).
+### 1. Render (la interfaz)
+
+1. Render → **New → Blueprint** → apunta a este repo. Lee `render.yaml`.
+2. Render genera solo el `INGEST_TOKEN`. **Cópialo** de Environment: lo necesitas
+   en el paso 2.
+3. `WA_RECIPIENTS` se puede dejar vacío y configurar luego desde la app.
+
+### 2. GitHub Actions (el motor)
+
+En el repo → **Settings → Secrets and variables → Actions → New secret**:
+
+| Secret | Valor |
+|---|---|
+| `APP_URL` | `https://tu-app.onrender.com` |
+| `INGEST_TOKEN` | el mismo que generó Render |
+
+El workflow corre solo cada hora. Para probarlo ya: pestaña **Actions → Buscar
+vuelos → Run workflow**.
+
+### 3. Botón "Actualizar" de la app (opcional)
+
+Para que el botón dispare el workflow, crea un
+[token de GitHub](https://github.com/settings/tokens) con permiso `workflow` y
+pon en Render:
+
+```
+SCRAPE_URL=https://api.github.com/repos/USUARIO/REPO/actions/workflows/scrape.yml/dispatches
+```
+
+Sin esto el botón no rompe nada: simplemente avisa que el runner corre cada hora.
 
 Notas:
 
-- El `render.yaml` viene en **Starter** con disco en `/data` para que la BD
-  sobreviva a los redeploys.
-- **Si quieres usar el plan Free:** quita el bloque `disk:` y cambia `plan` a
-  `free`, y mantén el servicio despierto con UptimeRobot (el free duerme a los
-  15 min). Ojo con dos cosas: 512 MB de RAM van justos con Chromium, y con 0.1
-  CPU las páginas cargan mucho más lento (puede que a Avianca no le alcancen los
-  60s de timeout). Si ves *Out of memory* o muchos timeouts, sube a Starter.
-- Sin disco no hay BD persistente, pero la app repone tus fechas desde el
-  `localStorage` del navegador la próxima vez que la abras.
+- El plan free duerme a los 15 min: mantenlo despierto con UptimeRobot apuntando
+  a `/health` cada 10 min.
+- Sin disco no hay BD persistente. Si Render reinicia, la app repone tus fechas
+  desde el `localStorage` del navegador la próxima vez que la abras (y toca
+  volver a escanear el QR de WhatsApp).
 
 ## Frecuencia
 
-60 minutos por defecto. Menos de 30 aumenta el riesgo de bloqueo (Avianca es la
-más sensible). Se cambia en **⚙ Alertas → Revisar cada (min)**.
+Cada hora, definido en el `cron` de `.github/workflows/scrape.yml`. Bajar de 30
+minutos aumenta el riesgo de bloqueo (Avianca es la más sensible) y consume más
+minutos de Actions (el plan gratis da 2000/mes; una ronda gasta ~2).
 
 `No repetir alerta (h)` evita recibir el mismo vuelo cada hora: solo vuelve a
 avisar si pasó ese tiempo **o** si el precio bajó todavía más.

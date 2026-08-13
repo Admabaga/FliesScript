@@ -4,19 +4,18 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from fastapi import Body, FastAPI, HTTPException
+from fastapi import Body, FastAPI, Header, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from . import db, engine, notify, whatsapp
-from .config import SECRET_KEYS
-from .scrapers import NAMES
-from .scrapers.base import stop_all
+from .config import INGEST_TOKEN, SCRAPE_URL
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 log = logging.getLogger("app")
 
 STATIC = Path(__file__).resolve().parent.parent / "static"
+AIRLINES = ["Wingo", "JetSMART", "Avianca"]
 
 
 def _scheduler() -> AsyncIOScheduler:
@@ -32,44 +31,31 @@ def _scheduler() -> AsyncIOScheduler:
 scheduler = _scheduler()
 
 
-def _reschedule():
-    minutes = max(15, int(db.get_settings().get("scan_interval_min") or 60))
-    scheduler.add_job(
-        engine.scan_all,
-        "interval",
-        minutes=minutes,
-        id="scan",
-        replace_existing=True,
-        max_instances=1,
-        coalesce=True,
-    )
-    log.info("Escaneo programado cada %s min", minutes)
-
-
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     db.init()
     scheduler.start()
-    _reschedule()
-    async def first_scan():
-        # Se espera a que Render valide el health check: si Chromium arranca antes,
-        # se come la RAM del plan free y el servicio muere sin abrir el puerto.
-        await asyncio.sleep(45)
-        await engine.scan_all()
-
-    asyncio.create_task(first_scan())
     yield
     scheduler.shutdown(wait=False)
-    await stop_all()
     await whatsapp.stop()
 
 
 app = FastAPI(title="Flight", lifespan=lifespan)
 
 
+def check_token(token: str | None):
+    if not INGEST_TOKEN:
+        raise HTTPException(503, "falta configurar INGEST_TOKEN en el servidor")
+    if token != INGEST_TOKEN:
+        raise HTTPException(401, "token inválido")
+
+
 @app.get("/health")
 async def health():
     return {"ok": True, **engine.STATE}
+
+
+# ---------------------------------------------------------------- fechas / UI
 
 
 @app.get("/api/watches")
@@ -79,7 +65,7 @@ async def get_watches():
         out.append({**w, "flights": db.get_flights(w["id"]), "status": db.get_statuses(w["id"])})
     return {
         "watches": out,
-        "airlines": NAMES,
+        "airlines": AIRLINES,
         "last_scan": engine.STATE["last_scan"],
         "running": engine.STATE["running"],
     }
@@ -93,7 +79,7 @@ async def post_watch(payload: dict = Body(...)):
     watch_id = db.add_watch(
         payload["origin"], payload["destination"], payload["date"], payload["max_price"]
     )
-    asyncio.create_task(engine.scan_all(only_watch_id=watch_id))
+    asyncio.create_task(trigger_scrape())  # que el runner la mire ya
     return {"id": watch_id}
 
 
@@ -109,23 +95,54 @@ async def del_watch(watch_id: int):
     return {"ok": True}
 
 
+# ------------------------------------------------- runner (GitHub Actions)
+
+
+async def trigger_scrape() -> dict:
+    """Le pide a GitHub Actions que corra el scraping ahora, si está configurado."""
+    if not SCRAPE_URL:
+        return {"started": False, "detalle": "el runner corre solo cada hora"}
+    import httpx
+
+    try:
+        async with httpx.AsyncClient(timeout=20) as c:
+            r = await c.post(SCRAPE_URL, json={"ref": "main"})
+        ok = r.status_code < 300
+        return {"started": ok, "detalle": None if ok else f"GitHub respondió {r.status_code}"}
+    except Exception as exc:  # noqa: BLE001
+        return {"started": False, "detalle": str(exc)[:120]}
+
+
 @app.post("/api/scan")
-async def post_scan(payload: dict = Body(default={})):
-    asyncio.create_task(engine.scan_all(only_watch_id=payload.get("watch_id")))
-    return {"started": True}
+async def post_scan():
+    return await trigger_scrape()
+
+
+@app.get("/api/pending")
+async def pending(x_token: str | None = Header(default=None)):
+    """El runner pregunta qué fechas debe consultar."""
+    check_token(x_token)
+    return {"watches": engine.pending_watches()}
+
+
+@app.post("/api/results")
+async def results(payload: dict = Body(...), x_token: str | None = Header(default=None)):
+    """El runner entrega lo que encontró; aquí se guarda y se alerta."""
+    check_token(x_token)
+    return await engine.apply_results(payload["watch_id"], payload.get("airlines", {}))
+
+
+# ------------------------------------------------------------- ajustes / WhatsApp
 
 
 @app.get("/api/settings")
 async def get_settings():
-    s = db.get_settings()
-    return {k: ("••••••" if k in SECRET_KEYS and v else v) for k, v in s.items()}
+    return db.get_settings()
 
 
 @app.post("/api/settings")
 async def post_settings(payload: dict = Body(...)):
-    clean = {k: v for k, v in payload.items() if not (k in SECRET_KEYS and v in ("", "••••••"))}
-    db.save_settings(clean)
-    _reschedule()
+    db.save_settings(payload)
     return {"ok": True}
 
 
@@ -145,13 +162,11 @@ async def whatsapp_status():
 
 @app.post("/api/whatsapp/connect")
 async def whatsapp_connect():
-    """Abre WhatsApp Web y devuelve el QR para escanear desde el celular."""
     return await whatsapp.refresh_state()
 
 
 @app.post("/api/whatsapp/pair")
 async def whatsapp_pair():
-    """Espera a que se escanee el QR (o lo refresca si vence)."""
     return await whatsapp.wait_for_pairing()
 
 
