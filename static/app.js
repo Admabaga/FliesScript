@@ -172,6 +172,7 @@ function paintWa(s) {
           ? "Abriendo WhatsApp Web…"
           : "WhatsApp sin vincular");
   btn.textContent = s.status === "conectado" ? "Revincular" : "Conectar";
+  btn.dataset.conectado = s.status === "conectado" ? "1" : "";
   btn.disabled = false;
   const box = $("#waQr");
   if (s.qr) {
@@ -186,7 +187,8 @@ async function connectWa() {
   const btn = $("#btnWa");
   btn.disabled = true;
   btn.textContent = "Abriendo…";
-  paintWa(await api("/api/whatsapp/connect", { method: "POST" }));
+  const ruta = $("#btnWa").dataset.conectado ? "/api/whatsapp/logout" : "/api/whatsapp/connect";
+  paintWa(await api(ruta, { method: "POST" }));
   // WhatsApp rota el código cada ~20s: hay que repintarlo o vence antes de escanearlo.
   for (let i = 0; i < 120; i++) {
     await new Promise((r) => setTimeout(r, 2000));

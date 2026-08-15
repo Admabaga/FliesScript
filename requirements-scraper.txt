@@ -1,0 +1,8 @@
+# Solo para el runner de GitHub Actions (runner.py).
+-r requirements.txt
+
+# Dos motores de navegador a proposito (ver README):
+#   patchright -> JetSMART   |   playwright -> Wingo y Avianca
+# playwright se instala aparte con --no-deps porque pinea pyee==12 y patchright
+# pinea pyee 13; con pyee 13 funcionan los dos (verificado).
+patchright==1.52.5

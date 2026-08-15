@@ -6,3 +6,5 @@ __pycache__/
 venv/
 .DS_Store
 .idea/
+node_modules/
+auth_info_baileys/

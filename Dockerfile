@@ -1,20 +1,23 @@
-FROM mcr.microsoft.com/playwright/python:v1.49.1-jammy
+# Sin Chromium: el scraping vive en GitHub Actions y WhatsApp usa Baileys
+# (WebSocket puro). La imagen queda pequeña y cabe de sobra en el plan free.
+FROM python:3.12-slim
 
 WORKDIR /app
-ENV PYTHONUNBUFFERED=1 DB_PATH=/tmp/flight/flights.db
+ENV PYTHONUNBUFFERED=1 \
+    DB_PATH=/tmp/flight/flights.db \
+    WA_AUTH_DIR=/tmp/flight/whatsapp
 
-# xvfb = pantalla virtual. Avianca (Akamai) rechaza el modo headless, así que el
-# navegador corre "con ventana" contra una pantalla que no existe.
-RUN apt-get update && apt-get install -y --no-install-recommends xvfb \
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends nodejs npm ca-certificates \
  && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt \
- && pip install --no-cache-dir --no-deps playwright==1.49.1
+RUN pip install --no-cache-dir -r requirements.txt
 
-# En Render solo hace falta el Chromium de Playwright (ya viene en la imagen) para
-# WhatsApp Web. El scraping —y patchright— corren en GitHub Actions.
+COPY whatsapp-bot/package.json whatsapp-bot/
+RUN cd whatsapp-bot && npm install --omit=dev
 
+COPY whatsapp-bot ./whatsapp-bot
 COPY app ./app
 COPY static ./static
 COPY start.sh .

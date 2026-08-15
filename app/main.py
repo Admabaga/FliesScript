@@ -114,7 +114,13 @@ async def trigger_scrape() -> dict:
         if r.status_code < 300:
             return {"started": True, "detalle": "buscando… los precios llegan en ~3 min"}
         if r.status_code in (401, 403):
-            return {"started": False, "detalle": "falta GH_TOKEN o no tiene permiso 'workflow'"}
+            return {"started": False, "detalle": "el token no tiene permiso sobre el repo"}
+        if r.status_code == 404:
+            # GitHub responde 404 (no 401) cuando la petición va sin credenciales.
+            falta = "falta GH_TOKEN en Render" if not GH_TOKEN else (
+                "el token debe ser de la cuenta dueña del repo, con permisos repo + workflow"
+            )
+            return {"started": False, "detalle": f"GitHub respondió 404: {falta}"}
         return {"started": False, "detalle": f"GitHub respondió {r.status_code}"}
     except Exception as exc:  # noqa: BLE001
         return {"started": False, "detalle": str(exc)[:120]}
@@ -174,13 +180,20 @@ async def test_alert():
 
 @app.get("/api/whatsapp")
 async def whatsapp_status():
-    return whatsapp.STATE
+    """Se consulta al sidecar cada vez: el QR de allá se renueva solo."""
+    return await whatsapp.refresh_state()
 
 
 @app.post("/api/whatsapp/connect")
 async def whatsapp_connect():
-    """Arranca la vinculación; la UI luego lee el QR (que se renueva) con GET."""
+    """El sidecar ya tiene el QR listo; la UI lo va leyendo con GET."""
     return await whatsapp.start_pairing()
+
+
+@app.post("/api/whatsapp/logout")
+async def whatsapp_logout():
+    """Cierra la sesión para vincular otro teléfono."""
+    return await whatsapp.logout()
 
 
 app.mount("/static", StaticFiles(directory=STATIC), name="static")

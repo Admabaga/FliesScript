@@ -25,8 +25,8 @@ GitHub Actions (cada hora)          Render (free)
 
 - **`runner.py`** corre en Actions: pide las fechas a la app (`GET /api/pending`),
   consulta las aerolíneas y devuelve lo que encontró (`POST /api/results`).
-- **La app en Render** solo guarda, pinta la interfaz y envía por WhatsApp Web.
-  Ahí sí abre un Chromium, pero uno solo y únicamente al enviar.
+- **La app en Render** solo guarda, pinta la interfaz y envía por WhatsApp.
+  No abre ningún navegador: su imagen ni siquiera trae Chromium.
 
 No hay API usable en las aerolíneas: las tres están detrás de anti-bots
 (Cloudflare en Wingo, Imperva en JetSMART, Akamai en Avianca) que **también
@@ -65,13 +65,18 @@ Abre http://localhost:8010
 
 ## Configurar WhatsApp
 
-Los mensajes salen **desde tu propio WhatsApp**, igual que WhatsApp Web:
+Los mensajes salen **desde tu propio WhatsApp**. El envío lo hace un sidecar en
+Node con [Baileys](https://github.com/WhiskeySockets/Baileys) (`whatsapp-bot/`),
+que habla el protocolo por WebSocket: sin Chrome y con el QR generado por el
+propio WhatsApp.
 
-1. **⚙ Alertas → Conectar**. Aparece un código QR que **se renueva solo cada
-   ~20s** (WhatsApp lo rota; si se mostrara fijo, al escanearlo saldría "No se
-   pudo vincular el dispositivo").
+> Antes esto abría WhatsApp Web con Playwright y fotografiaba el QR. No servía:
+> el código se rota cada ~20s y la foto llegaba vencida al celular
+> ("No se pudo vincular el dispositivo").
+
+1. **⚙ Alertas → Conectar**. Aparece el código QR (se renueva solo).
 2. En el celular: *WhatsApp → Ajustes → Dispositivos vinculados → Vincular
-   dispositivo*, y escanea el que esté en pantalla en ese momento.
+   dispositivo*, y escanea.
 3. Escribe los números a avisar, uno por línea:
    ```
    +573054305869
