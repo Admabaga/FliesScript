@@ -7,22 +7,25 @@ services:
     healthCheckPath: /health
     # Sin disco: el plan free no lo soporta. Si el servicio se reinicia, la app
     # repone las fechas desde el localStorage del navegador al abrirla.
+    #
+    # OJO: toda variable que no esté aquí, Render la borra al redesplegar el
+    # Blueprint. Las de `sync: false` se escriben a mano en el panel y se
+    # conservan, pero deben estar declaradas.
     envVars:
       - key: DB_PATH
         value: /tmp/flight/flights.db
-      - key: SCAN_INTERVAL_MIN
-        value: "60"
       - key: ALERT_COOLDOWN_H
         value: "8"
-      - key: HEADLESS
-        value: "false"   # con xvfb; en headless Avianca devuelve 403
-      # Se carga desde el dashboard de Render (o desde la UI de la app)
+      # Números a avisar, uno por línea (también se edita desde ⚙ Alertas)
       - key: WA_RECIPIENTS
         sync: false
       # Clave compartida con GitHub Actions (el mismo valor en el secret INGEST_TOKEN)
       - key: INGEST_TOKEN
         generateValue: true
-      # Opcional: permite que el botón "Actualizar" dispare el workflow
+      # Botón "Actualizar": dispara el workflow de scraping
       # https://api.github.com/repos/USUARIO/REPO/actions/workflows/scrape.yml/dispatches
       - key: SCRAPE_URL
+        sync: false
+      # Token clásico de GitHub (permisos repo + workflow) de la cuenta DUEÑA del repo
+      - key: GH_TOKEN
         sync: false

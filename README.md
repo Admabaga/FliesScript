@@ -126,8 +126,10 @@ vuelos → Run workflow**.
 
 ### 3. Botón "Actualizar" de la app
 
-Crea un [token clásico de GitHub](https://github.com/settings/tokens/new) con el
-permiso **`workflow`** y ponlo en Render → Environment:
+Crea un [token clásico de GitHub](https://github.com/settings/tokens/new) con los
+permisos **`repo` + `workflow`**, y **desde la cuenta dueña del repo** (si es de
+un colaborador, GitHub responde 403 *"Must have admin rights"*). Ponlo en
+Render → Environment:
 
 ```
 SCRAPE_URL=https://api.github.com/repos/USUARIO/REPO/actions/workflows/scrape.yml/dispatches
@@ -142,6 +144,9 @@ Sin esto el botón no rompe nada: solo avisa que el runner corre cada 10 min.
 
 Notas:
 
+- **Toda variable de entorno debe estar declarada en `render.yaml`**, aunque su
+  valor se escriba a mano (`sync: false`). Las que no aparecen ahí, Render las
+  borra al redesplegar el Blueprint.
 - El plan free duerme a los 15 min: mantenlo despierto con UptimeRobot apuntando
   a `/health` cada 10 min.
 - Sin disco no hay BD persistente. Si Render reinicia, la app repone tus fechas
