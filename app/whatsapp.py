@@ -74,8 +74,15 @@ async def refresh_state(wait_s: int = 25) -> dict:
             await page.close()
 
 
-async def wait_for_pairing(timeout_s: int = 150) -> dict:
-    """Mantiene el QR vivo mientras la persona lo escanea, y lo refresca si vence."""
+_task: asyncio.Task | None = None
+
+
+async def _pair_loop(timeout_s: int = 240):
+    """Deja WhatsApp Web abierto y va publicando el QR más reciente en STATE.
+
+    WhatsApp rota el código cada ~20s: si se muestra una foto fija, para cuando
+    la persona alcanza a escanearlo ya venció y sale "No se pudo vincular".
+    """
     async with _lock:
         page = await _open_page()
         try:
@@ -85,8 +92,8 @@ async def wait_for_pairing(timeout_s: int = 150) -> dict:
                 waited += 2
                 if await _first(page, LOGGED_IN):
                     STATE.update(status="conectado", qr=None)
-                    await page.wait_for_timeout(4000)  # deja que guarde la sesión
-                    return dict(STATE)
+                    await page.wait_for_timeout(5000)  # deja que guarde la sesión
+                    return
                 canvas = await _first(page, QR_CANVAS)
                 if canvas:
                     png = await canvas.screenshot()
@@ -94,9 +101,29 @@ async def wait_for_pairing(timeout_s: int = 150) -> dict:
                         status="esperando_qr",
                         qr="data:image/png;base64," + base64.b64encode(png).decode(),
                     )
-            return dict(STATE)
+            STATE.update(status="desconectado", qr=None)
+        except Exception as exc:  # noqa: BLE001
+            log.warning("vinculación falló: %s", exc)
+            STATE.update(status="desconectado", qr=None)
         finally:
-            await page.close()
+            try:
+                await page.close()
+            except Exception:  # noqa: BLE001
+                pass
+
+
+async def start_pairing() -> dict:
+    """Arranca la vinculación en segundo plano; la UI va leyendo el QR con GET."""
+    global _task
+    if _task and not _task.done():
+        return dict(STATE)
+    STATE.update(status="abriendo", qr=None)
+    _task = asyncio.create_task(_pair_loop())
+    for _ in range(20):  # espera al primer QR sin dejar colgado al navegador
+        await asyncio.sleep(1)
+        if STATE["status"] in ("esperando_qr", "conectado"):
+            break
+    return dict(STATE)
 
 
 def _digits(phone: str) -> str:

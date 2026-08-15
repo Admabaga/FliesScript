@@ -179,12 +179,8 @@ async def whatsapp_status():
 
 @app.post("/api/whatsapp/connect")
 async def whatsapp_connect():
-    return await whatsapp.refresh_state()
-
-
-@app.post("/api/whatsapp/pair")
-async def whatsapp_pair():
-    return await whatsapp.wait_for_pairing()
+    """Arranca la vinculación; la UI luego lee el QR (que se renueva) con GET."""
+    return await whatsapp.start_pairing()
 
 
 app.mount("/static", StaticFiles(directory=STATIC), name="static")

@@ -165,10 +165,12 @@ function paintWa(s) {
   txt.textContent =
     s.detalle ||
     (s.status === "conectado"
-      ? "WhatsApp vinculado"
+      ? "WhatsApp vinculado ✅"
       : s.status === "esperando_qr"
-        ? "Escanea el código con tu celular"
-        : "WhatsApp sin vincular");
+        ? "Escanea el código (se renueva solo)"
+        : s.status === "abriendo"
+          ? "Abriendo WhatsApp Web…"
+          : "WhatsApp sin vincular");
   btn.textContent = s.status === "conectado" ? "Revincular" : "Conectar";
   btn.disabled = false;
   const box = $("#waQr");
@@ -184,14 +186,13 @@ async function connectWa() {
   const btn = $("#btnWa");
   btn.disabled = true;
   btn.textContent = "Abriendo…";
-  const first = await api("/api/whatsapp/connect", { method: "POST" });
-  paintWa(first);
-  if (first.status === "ocupado") return;
-  // se queda esperando el escaneo, refrescando el QR si vence
-  for (let i = 0; i < 4; i++) {
-    const s = await api("/api/whatsapp/pair", { method: "POST" });
+  paintWa(await api("/api/whatsapp/connect", { method: "POST" }));
+  // WhatsApp rota el código cada ~20s: hay que repintarlo o vence antes de escanearlo.
+  for (let i = 0; i < 120; i++) {
+    await new Promise((r) => setTimeout(r, 2000));
+    const s = await api("/api/whatsapp");
     paintWa(s);
-    if (s.status === "conectado") return;
+    if (s.status === "conectado" || s.status === "desconectado") return;
   }
 }
 $("#btnWa").addEventListener("click", connectWa);

@@ -67,9 +67,11 @@ Abre http://localhost:8010
 
 Los mensajes salen **desde tu propio WhatsApp**, igual que WhatsApp Web:
 
-1. **⚙ Alertas → Conectar**. Aparece un código QR.
+1. **⚙ Alertas → Conectar**. Aparece un código QR que **se renueva solo cada
+   ~20s** (WhatsApp lo rota; si se mostrara fijo, al escanearlo saldría "No se
+   pudo vincular el dispositivo").
 2. En el celular: *WhatsApp → Ajustes → Dispositivos vinculados → Vincular
-   dispositivo*, y escanea.
+   dispositivo*, y escanea el que esté en pantalla en ese momento.
 3. Escribe los números a avisar, uno por línea:
    ```
    +573054305869
