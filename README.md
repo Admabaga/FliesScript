@@ -84,8 +84,11 @@ propio WhatsApp.
    ```
 4. **Guardar** → **Probar**.
 
-No se guarda ninguna contraseña: la sesión vive en el perfil del navegador, como
-en el computador de cualquiera.
+No se guarda ninguna contraseña: la sesión vive en `WA_AUTH_DIR`, igual que un
+dispositivo vinculado más.
+
+> El sidecar necesita **Node 20 o superior** (Baileys lo exige). El `nodejs` que
+> trae Debian es el 18, por eso el Dockerfile lo instala desde NodeSource.
 
 > ⚠️ **En el plan free la sesión se pierde cuando Render reinicia el servicio**
 > (no hay disco persistente) y toca volver a escanear el QR. Si eso molesta:

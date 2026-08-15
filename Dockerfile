@@ -7,15 +7,18 @@ ENV PYTHONUNBUFFERED=1 \
     DB_PATH=/tmp/flight/flights.db \
     WA_AUTH_DIR=/tmp/flight/whatsapp
 
-# git hace falta: Baileys trae una dependencia que npm instala desde un repo.
+# Node 20: el `nodejs` de Debian es el 18 y Baileys exige >=20 (el sidecar moría
+# al arrancar). git hace falta porque una dependencia se instala desde un repo.
 RUN apt-get update \
- && apt-get install -y --no-install-recommends nodejs npm git ca-certificates \
+ && apt-get install -y --no-install-recommends curl gnupg git ca-certificates \
+ && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+ && apt-get install -y --no-install-recommends nodejs \
  && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY whatsapp-bot/package.json whatsapp-bot/
+COPY whatsapp-bot/package.json whatsapp-bot/package-lock.json whatsapp-bot/
 # Baileys depende de libsignal-node por "git+ssh", y en el contenedor no hay
 # llaves SSH: se reescribe a HTTPS para que npm pueda clonarlo.
 RUN git config --global url."https://github.com/".insteadOf "ssh://git@github.com/" \
