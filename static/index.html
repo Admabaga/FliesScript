@@ -50,10 +50,12 @@
 
       <label class="full">¿A quién le aviso? Un número por línea</label>
       <textarea name="wa_recipients" rows="3" placeholder="+573054305869&#10;+573009876543"></textarea>
-      <div class="grid2">
-        <label>Revisar cada (min)<input name="scan_interval_min" type="number" min="15" step="5"></label>
-        <label>No repetir alerta (h)<input name="alert_cooldown_h" type="number" min="1"></label>
-      </div>
+
+      <p class="muted small nota">
+        Se revisan las 3 aerolíneas <b>cada 10 minutos</b>. Solo te escribo cuando
+        hay novedad: un vuelo nuevo bajo tu filtro, o uno ya avisado que
+        <b>bajó de precio</b>. Lo mismo al mismo precio no se repite.
+      </p>
       <p id="cfgMsg" class="muted small"></p>
       <div class="row">
         <button class="btn" id="btnTest" type="button">Probar</button>

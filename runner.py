@@ -13,8 +13,8 @@ import sys
 
 import httpx
 
-from app.scrapers import AIRLINES
-from app.scrapers.base import keep_only, stop_all
+from scraper import AIRLINES
+from scraper.base import keep_only, stop_all
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s: %(message)s")
 log = logging.getLogger("runner")

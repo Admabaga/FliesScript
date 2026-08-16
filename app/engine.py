@@ -13,6 +13,10 @@ log = logging.getLogger("engine")
 
 STATE = {"running": False, "last_scan": None, "last_error": None}
 
+# Bajada mínima para volver a avisar por un vuelo ya conocido: sin esto, una
+# diferencia de $200 dispararía un mensaje.
+MIN_DROP = 1000
+
 
 def pending_watches() -> list[dict]:
     """Lo que el runner debe consultar: fechas activas que aún no han pasado."""
@@ -44,15 +48,24 @@ async def apply_results(watch_id: int, airlines: dict) -> dict:
 
     sent = []
     if hits:
-        cooldown = int(db.get_settings().get("alert_cooldown_h") or 8)
+        # Solo se avisa lo que es noticia: un vuelo que no se había visto bajo el
+        # filtro, o uno ya conocido que bajó de precio. Lo repetido no se manda.
+        conocidos = db.alerted_prices(watch_id)
         to_alert = []
         for h in hits:
             key = f"{watch_id}|{h['airline']}|{h.get('depart_time')}"
-            if db.should_alert(key, h["price"], cooldown):
-                to_alert.append((key, h))
+            antes = conocidos.get(key)
+            if antes is None:
+                to_alert.append((key, {**h, "novedad": "nuevo"}))
+            elif h["price"] <= antes - MIN_DROP:
+                to_alert.append((key, {**h, "novedad": "bajo", "antes": antes}))
         if to_alert:
             sent = await notify.notify(watch, [h for _, h in to_alert])
-            if any(r.endswith(": ok") for r in sent):
+            entregado = any(r.endswith(": ok") for r in sent)
+            # Si no hay a quién avisar, igual se da por visto: no tiene sentido
+            # acumular "novedades" que nadie va a recibir. Pero si había alguien
+            # y el envío falló, queda pendiente para el próximo intento.
+            if entregado or sent == [notify.SIN_DESTINATARIOS]:
                 for key, h in to_alert:
                     db.mark_alert(key, h["price"])
 

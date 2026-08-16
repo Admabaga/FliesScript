@@ -11,26 +11,21 @@ def clean(name: str, default: str = "") -> str:
     en una URL o un token eso revienta la petición."""
     return re.sub(r"\s+", "", os.getenv(name, default))
 
-DB_PATH = os.getenv("DB_PATH", "data/flights.db")
-NAV_TIMEOUT_MS = int(os.getenv("NAV_TIMEOUT_MS", "60000"))
-PORT = int(os.getenv("PORT", "8000"))
 
-# Akamai (Avianca) detecta el modo headless y devuelve 403. Tanto en Docker como
-# en GitHub Actions se corre con ventana sobre una pantalla virtual (xvfb).
-HEADLESS = os.getenv("HEADLESS", "false").lower() != "false"
+DB_PATH = os.getenv("DB_PATH", "data/flights.db")
+PORT = int(os.getenv("PORT", "8000"))
 
 # Clave compartida con el runner de GitHub Actions.
 INGEST_TOKEN = clean("INGEST_TOKEN")
 
-# Para pedirle a GitHub que corra el scraping ya (botón "Actualizar"). Opcional:
+# Para que el botón "Actualizar" dispare el workflow de scraping:
 # https://api.github.com/repos/USUARIO/REPO/actions/workflows/scrape.yml/dispatches
 SCRAPE_URL = clean("SCRAPE_URL")
-GH_TOKEN = clean("GH_TOKEN")  # token con permiso `workflow`
+GH_TOKEN = clean("GH_TOKEN")  # token clásico con permisos repo + workflow
 
-# Valores por defecto de la configuracion editable desde la UI.
+# Lo editable desde la UI. El intervalo de búsqueda NO está aquí: vive en el
+# cron del workflow, y las alertas se disparan por novedad, no por tiempo.
 SETTING_DEFAULTS = {
-    "scan_interval_min": os.getenv("SCAN_INTERVAL_MIN", "60"),
-    "alert_cooldown_h": os.getenv("ALERT_COOLDOWN_H", "8"),
     # Un numero por linea: "+573054305869" (o "+573054305869|apikey" para CallMeBot).
     "wa_recipients": os.getenv("WA_RECIPIENTS", ""),
 }

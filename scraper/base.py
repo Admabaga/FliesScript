@@ -1,9 +1,7 @@
 import os
 import re
 
-from ..config import DB_PATH, HEADLESS, NAV_TIMEOUT_MS
-
-PROFILE_ROOT = os.path.join(os.path.dirname(DB_PATH) or ".", "profiles")
+from .config import HEADLESS, NAV_TIMEOUT_MS, PROFILE_ROOT
 
 UA = (
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "

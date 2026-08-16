@@ -4,7 +4,6 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 import httpx
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from fastapi import Body, FastAPI, Header, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -19,26 +18,11 @@ STATIC = Path(__file__).resolve().parent.parent / "static"
 AIRLINES = ["Wingo", "JetSMART", "Avianca"]
 
 
-def _scheduler() -> AsyncIOScheduler:
-    """Sin la base de zonas horarias del sistema, APScheduler revienta al arrancar.
-    El paquete tzdata la aporta; si aun asi faltara, mejor UTC que no arrancar."""
-    try:
-        return AsyncIOScheduler(timezone="America/Bogota")
-    except Exception as exc:  # noqa: BLE001
-        log.warning("Sin zona horaria America/Bogota (%s); se usa UTC", exc)
-        return AsyncIOScheduler(timezone="UTC")
-
-
-scheduler = _scheduler()
-
-
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     db.init()
-    scheduler.start()
     asyncio.create_task(rehydrate())
     yield
-    scheduler.shutdown(wait=False)
     await whatsapp.stop()
 
 

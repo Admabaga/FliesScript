@@ -8,7 +8,7 @@ Vigila precios de vuelos en **Wingo**, **JetSMART** y **Avianca** y avisa por
   para no tener que acordarse de si Cartagena es CTG o CGN.
 - Las fechas viven en el servidor **y** en `localStorage` (no se pierden al recargar).
 - Cada fecha muestra los vuelos de las 3 aerolíneas con **horario y precio**.
-- Revisa cada 60 min y alerta solo cuando hay algo bajo tu filtro.
+- Revisa cada 10 min y **solo avisa cuando hay novedad** (ver más abajo).
 - Pensada para el celular: una columna por aerolínea en PC, apiladas en móvil.
 
 ## Cómo funciona
@@ -17,11 +17,14 @@ Está partida en dos, y por una razón concreta: el scraping necesita un navegad
 real, y un navegador no cabe en los 512 MB del plan free de Render.
 
 ```
-GitHub Actions (cada hora)          Render (free)
-  abre las 3 aerolíneas    ──POST──▶  guarda, muestra
-  con Chromium + xvfb                 y manda los WhatsApp
-  7 GB RAM · CPU real                 sin Chromium para scrapear
+GitHub Actions (cada 10 min)        Render (free)
+  scraper/ + runner.py     ──POST──▶  app/ : guarda, muestra
+  Chromium + xvfb                     y manda los WhatsApp
+  7 GB RAM · CPU real                 sin navegador
 ```
+
+La frontera es literal: `scraper/` y `runner.py` solo corren en Actions; `app/`
+solo corre en Render. Nada de `scraper/` entra en la imagen de Docker.
 
 - **`runner.py`** corre en Actions: pide las fechas a la app (`GET /api/pending`),
   consulta las aerolíneas y devuelve lo que encontró (`POST /api/results`).
@@ -42,18 +45,45 @@ JetSMART necesita `patchright` (fork de Playwright sin las fugas de CDP) porque
 Imperva redirige a Playwright estándar a la home.
 
 Para no despertar a los anti-bots: **perfil de navegador persistente**, consultas
-**espaciadas 12s** y reintentos con backoff. Además solo vive **un Chromium a la
-vez** y se cierra al terminar el escaneo, para caber en 512 MB de RAM.
+espaciadas y reintentos con backoff.
+
+## Cuándo te escribe (y cuándo no)
+
+Las alertas se disparan **por novedad, no por reloj**. En cada revisión, para
+cada vuelo que esté bajo tu filtro:
+
+| Situación | ¿Te escribe? |
+|---|---|
+| Vuelo nuevo bajo tu filtro | ✅ sí, al instante |
+| El mismo vuelo, mismo precio | ❌ no, ya lo sabías |
+| Bajó de precio (≥ $1.000) | ✅ sí, con el precio anterior |
+| Bajó menos de $1.000 | ❌ no, es ruido |
+| Subió, pero sigue bajo el filtro | ❌ no, ya lo conocías más barato |
+
+Como se revisa cada 10 minutos, cualquier cambio real te llega en ≤10 min. Se
+recuerda el último precio avisado por vuelo (tabla `alerts`), así que no hay
+repeticiones. Si el envío falla (WhatsApp sin vincular), la novedad **queda
+pendiente** y sale en el siguiente intento.
 
 ## Correr en local
 
 ```bash
 python3.12 -m venv .venv
-.venv/bin/pip install -r requirements.txt
+.venv/bin/pip install -r requirements.txt          # solo la app web
+.venv/bin/uvicorn app.main:app --reload --port 8010
+
+# el sidecar de WhatsApp, en otra terminal
+cd whatsapp-bot && npm install && node index.js
+```
+
+Para trabajar en el scraper hace falta lo del runner:
+
+```bash
+.venv/bin/pip install -r requirements-scraper.txt
 .venv/bin/pip install --no-deps playwright==1.49.1
 .venv/bin/python -m playwright install chromium
 .venv/bin/python -m patchright install chromium
-.venv/bin/uvicorn app.main:app --reload --port 8010
+APP_URL=http://localhost:8010 INGEST_TOKEN=... .venv/bin/python runner.py
 ```
 
 Abre http://localhost:8010
@@ -169,20 +199,17 @@ Dos cosas que conviene saber:
 - Consultar tan seguido sube el riesgo de que un anti-bot bloquee. Si empiezas a
   ver errores seguidos en una aerolínea, sube el intervalo a 20-30 min.
 
-`No repetir alerta (h)` evita recibir el mismo vuelo cada hora: solo vuelve a
-avisar si pasó ese tiempo **o** si el precio bajó todavía más.
-
 ## Si una aerolínea deja de funcionar
 
-Cada scraper está aislado en `app/scrapers/`. Si cambian el HTML, se ajusta el
+Cada scraper está aislado en `scraper/`. Si cambian el HTML, se ajusta el
 selector de ese archivo; las otras dos siguen funcionando y la interfaz muestra
 el error por aerolínea.
 
 | Archivo | Selector clave |
 |---|---|
-| `wingo.py` | `w-org-flight-card` |
-| `jetsmart.py` | texto `Vuelo Operado por` (tras pulsar *Continuar*) |
-| `avianca.py` | `button.flight-container` |
+| `scraper/wingo.py` | `w-org-flight-card` |
+| `scraper/jetsmart.py` | texto `Vuelo Operado por` (tras pulsar *Continuar*) |
+| `scraper/avianca.py` | `button.flight-container` |
 
 Los destinos del desplegable están en `static/airports.js`; agregar uno es una
 línea más en la región que corresponda.

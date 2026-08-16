@@ -177,17 +177,13 @@ def get_statuses(watch_id: int) -> list[dict]:
     return [dict(r) for r in rows]
 
 
-def should_alert(alert_key: str, price: int, cooldown_hours: int) -> bool:
-    """Alerta si nunca se envio, si vencio el cooldown, o si el precio bajo aun mas."""
+def alerted_prices(watch_id: int) -> dict[str, int]:
+    """Ultimo precio avisado por vuelo. Sirve para no repetir lo ya conocido."""
     with conn() as c:
-        row = c.execute("SELECT * FROM alerts WHERE alert_key = ?", (alert_key,)).fetchone()
-        if row is None:
-            return True
-        expired = c.execute(
-            "SELECT datetime(sent_at, ?) < datetime('now') AS ok FROM alerts WHERE alert_key = ?",
-            (f"+{int(cooldown_hours)} hours", alert_key),
-        ).fetchone()["ok"]
-        return bool(expired) or price < row["price"]
+        rows = c.execute(
+            "SELECT alert_key, price FROM alerts WHERE alert_key LIKE ?", (f"{watch_id}|%",)
+        ).fetchall()
+    return {r["alert_key"]: r["price"] for r in rows}
 
 
 def mark_alert(alert_key: str, price: int):

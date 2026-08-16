@@ -7,6 +7,9 @@ import httpx
 from . import db, whatsapp
 
 
+SIN_DESTINATARIOS = "sin números configurados"
+
+
 def fmt(price: int) -> str:
     """120000 -> $120.000 (miles con punto, como se lee en Colombia)."""
     return "$" + f"{int(price):,}".replace(",", ".")
@@ -15,18 +18,26 @@ def fmt(price: int) -> str:
 def build_message(watch: dict, hits: list[dict]) -> str:
     route = f"{watch['origin']}→{watch['destination']}"
     cheapest = min(h["price"] for h in hits)
+    bajadas = [h for h in hits if h.get("novedad") == "bajo"]
+    titulo = "📉 Bajó de precio" if bajadas else "✈️ Nueva oferta"
     lines = [
-        f"✈️ {route} · {watch['date']} · desde {fmt(cheapest)}",
-        f"(tu filtro: menos de {fmt(watch['max_price'])})",
+        f"{titulo} · {route} · {watch['date']}",
+        f"Desde {fmt(cheapest)} (tu filtro: menos de {fmt(watch['max_price'])})",
         "",
     ]
     for h in sorted(hits, key=lambda x: x["price"]):
         hora = h.get("depart_time") or "?"
         llegada = f"-{h['arrive_time']}" if h.get("arrive_time") else ""
-        lines.append(f"• {h['airline']} {hora}{llegada} → {fmt(h['price'])}")
+        if h.get("novedad") == "bajo":
+            cambio = f"  ↓ antes {fmt(h['antes'])}"
+        else:
+            cambio = "  🆕"
+        lines.append(f"• {h['airline']} {hora}{llegada} → {fmt(h['price'])}{cambio}")
     lines.append("")
     for airline in sorted({h["airline"] for h in hits}):
-        lines.append(next(h["url"] for h in hits if h["airline"] == airline))
+        url = next((h["url"] for h in hits if h["airline"] == airline and h.get("url")), None)
+        if url:
+            lines.append(url)
     return "\n".join(lines)
 
 
@@ -61,7 +72,7 @@ async def send_message(text: str) -> list[str]:
     """Manda por WhatsApp Web (QR). Si no está vinculado, cae a CallMeBot."""
     people = parse_recipients(db.get_settings().get("wa_recipients", ""))
     if not people:
-        return ["sin números configurados"]
+        return [SIN_DESTINATARIOS]
 
     if whatsapp.STATE["status"] != "conectado":
         await whatsapp.refresh_state(wait_s=8)
