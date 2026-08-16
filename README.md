@@ -181,7 +181,8 @@ Notas:
   valor se escriba a mano (`sync: false`). Las que no aparecen ahí, Render las
   borra al redesplegar el Blueprint.
 - El plan free duerme a los 15 min: mantenlo despierto con UptimeRobot apuntando
-  a `/health` cada 10 min.
+  a `https://TU-APP.onrender.com/health` cada 10 min. `/health` acepta **GET y
+  HEAD** a propósito: los monitores usan HEAD y FastAPI no lo añade solo.
 - Sin disco no hay BD persistente. Si Render reinicia, la app repone tus fechas
   desde el `localStorage` del navegador la próxima vez que la abras (y toca
   volver a escanear el QR de WhatsApp).

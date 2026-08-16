@@ -36,7 +36,9 @@ def check_token(token: str | None):
         raise HTTPException(401, "token inválido")
 
 
-@app.get("/health")
+# HEAD además de GET: los monitores tipo UptimeRobot usan HEAD por defecto, y
+# FastAPI no lo añade solo (respondía 405 y marcaba el servicio como caído).
+@app.api_route("/health", methods=["GET", "HEAD"])
 async def health():
     return {"ok": True, **engine.STATE}
 
