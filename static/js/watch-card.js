@@ -208,8 +208,9 @@ function panelMejorCompra(w) {
       }</span>
     </div>
     <div class="legs">
-      ${lineaTramo("Ida", c.out, w.date, true)}
-      ${c.ret ? lineaTramo("Vta", c.ret, w.return_date, true) : ""}
+      ${/* La aerolínea solo se repite por tramo si son distintas. */ ""}
+      ${lineaTramo("Ida", c.out, w.date, c.mixed)}
+      ${c.ret ? lineaTramo("Vta", c.ret, w.return_date, c.mixed) : ""}
     </div>
     <div class="bbreak">
       ${money(c.per_person)} por persona${
