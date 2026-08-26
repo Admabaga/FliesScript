@@ -36,6 +36,8 @@ STATIC = Path(__file__).resolve().parent.parent / "static"
 async def lifespan(_: FastAPI):
     db.init()
     asyncio.create_task(runner_client.rehydrate())
+    # El cron de GitHub no cumple los 10 min prometidos: la app se vigila sola.
+    asyncio.create_task(runner_client.watchdog())
     yield
     await whatsapp.stop()
 
@@ -48,9 +50,14 @@ for router in ROUTERS:
 
 # HEAD además de GET: los monitores tipo UptimeRobot usan HEAD por defecto, y
 # FastAPI no lo añade solo (respondía 405 y marcaba el servicio como caído).
+#
+# Ese ping cada 10 min es, de paso, el latido del vigilante: si los precios están
+# viejos, aprovecha para pedir una búsqueda. Se dispara en segundo plano para no
+# demorar la respuesta (el monitor mide el tiempo).
 @app.api_route("/health", methods=["GET", "HEAD"])
 async def health():
-    return {"ok": True, **engine.STATE}
+    asyncio.create_task(runner_client.ensure_fresh())
+    return {"ok": True, **engine.STATE, "auto": runner_client.estado_vigilante()}
 
 
 app.mount("/static", StaticFiles(directory=STATIC), name="static")

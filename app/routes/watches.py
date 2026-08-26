@@ -45,6 +45,9 @@ async def get_watches():
         **_vocabulario_equipaje(),
         "last_scan": engine.STATE["last_scan"],
         "running": engine.STATE["running"],
+        # Para que se note si la búsqueda automática dejó de funcionar en vez de
+        # quedarse callada: edad de los precios y qué respondió GitHub.
+        "auto": runner_client.estado_vigilante(),
     }
 
 

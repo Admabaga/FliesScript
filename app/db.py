@@ -258,6 +258,17 @@ def get_flights(watch_id: int) -> list[dict]:
     return flights
 
 
+def last_scrape_at() -> str | None:
+    """Cuándo llegaron los últimos precios (UTC, como lo guarda SQLite).
+
+    Es el reloj que mira el vigilante: sobrevive a los reinicios de Render, a
+    diferencia de `engine.STATE`, que vive en memoria.
+    """
+    with conn() as c:
+        fila = c.execute("SELECT MAX(scraped_at) AS t FROM flights").fetchone()
+    return fila["t"] if fila and fila["t"] else None
+
+
 def get_statuses(watch_id: int) -> list[dict]:
     with conn() as c:
         rows = c.execute("SELECT * FROM scan_status WHERE watch_id = ?", (watch_id,)).fetchall()

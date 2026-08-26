@@ -82,9 +82,31 @@ async function cargar({ forzar = false } = {}) {
   $("#lastScan").textContent = textoRevision(data);
 }
 
-function textoRevision({ running, last_scan }) {
+/**
+ * La línea de estado. Dice hace cuánto son los precios y, si la búsqueda
+ * automática está fallando, por qué: es lo primero que se quiere saber cuando
+ * los precios se ven viejos.
+ */
+function textoRevision({ running, last_scan, auto }) {
   if (running) return "buscando vuelos…";
-  return last_scan ? "última revisión: " + last_scan.replace("T", " ") : "sin revisiones aún";
+
+  let base = "sin revisiones aún";
+  if (auto && auto.edad_min !== null && auto.edad_min !== undefined) {
+    const m = auto.edad_min;
+    base =
+      m < 1
+        ? "precios de hace un momento"
+        : m < 60
+          ? `precios de hace ${m} min`
+          : `precios de hace ${Math.floor(m / 60)} h ${m % 60} min`;
+  } else if (last_scan) {
+    base = "última revisión: " + last_scan.replace("T", " ");
+  }
+
+  if (auto && !auto.activo) return base + " · búsqueda automática apagada";
+  // El detalle solo importa cuando algo va mal: si los precios están frescos, sobra.
+  if (auto && auto.detalle && auto.edad_min > 25) return base + " · " + auto.detalle;
+  return base;
 }
 
 // --------------------------------------------------------------- eventos

@@ -287,18 +287,43 @@ Notas:
   desde el `localStorage` del navegador la próxima vez que la abras (y toca
   volver a escanear el QR de WhatsApp).
 
-## Frecuencia
+## Frecuencia: por qué el `cron` no basta
 
-Cada 10 minutos, en el `cron` de `.github/workflows/scrape.yml`. Es gratis
-porque **en repos públicos los minutos de Actions son ilimitados** (en repos
-privados serían ~17.000 min/mes contra un tope de 2.000).
+El workflow declara `*/10`, pero **eso es una intención, no una promesa**.
+GitHub retrasa y se salta los `cron` de alta frecuencia cuando su cola está
+cargada, y los de 10 minutos son los primeros en caer. Medido sobre un día
+entero de este repo:
 
-Dos cosas que conviene saber:
+| | |
+|---|---|
+| intervalo declarado | 10 min |
+| intervalo real promedio | **53 min** |
+| mejor caso | 19 min |
+| peor caso | **123 min** |
 
-- GitHub no garantiza la hora exacta de los `cron`: cuando su cola está cargada
-  puede retrasarse 5-20 min. El botón **Actualizar** sí es inmediato.
-- Consultar tan seguido sube el riesgo de que un anti-bot bloquee. Si empiezas a
-  ver errores seguidos en una aerolínea, sube el intervalo a 20-30 min.
+Los `workflow_dispatch`, en cambio, arrancan de inmediato. Por eso **la app se
+vigila a sí misma** (`app/runner_client.py`): si los precios llevan más de 12
+minutos sin refrescarse, pide una búsqueda. La revisión ocurre
+
+- en cada `/health` — el ping que UptimeRobot ya hace cada 10 min para que
+  Render no se duerma se convierte así en el latido del sistema, y
+- en un bucle interno cada 4 minutos, por si nadie golpea `/health`.
+
+Con guardas para no volverse un problema: no pide dos búsquedas en menos de 8
+minutos, y si pedir no sirve (token sin permisos, runner en rojo) la espera se
+duplica hasta 60 min en vez de insistir. El estado sale en `/health` y en la
+barra de la app (`precios de hace 7 min`, o el error de GitHub si lo hay).
+
+Con esto el `cron` queda de **red de seguridad** y la cadencia real la marca el
+vigilante. Es gratis porque en repos públicos los minutos de Actions son
+ilimitados (en privados serían ~17.000 min/mes contra un tope de 2.000).
+
+> Para que el vigilante funcione, `SCRAPE_URL` y `GH_TOKEN` deben estar en
+> Render, y el token debe ser **de la cuenta dueña del repo**: con el de un
+> colaborador GitHub responde 403 *"Must have admin rights"*.
+
+Consultar seguido sube el riesgo de que un anti-bot bloquee. Si empiezas a ver
+errores seguidos en una aerolínea, sube `VIEJO_MIN` en `app/runner_client.py`.
 
 ## Si una aerolínea deja de funcionar
 
