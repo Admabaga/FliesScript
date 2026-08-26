@@ -270,6 +270,25 @@ details.fl.inbest .price { color: var(--accent); }
 .bbreak { font-size: 12.5px; line-height: 1.5; color: var(--txt); font-variant-numeric: tabular-nums; }
 .brow { display: flex; gap: 6px; flex-wrap: wrap; }
 .brow .btn { display: inline-flex; align-items: center; gap: 6px; }
+/* otras combinaciones: mezclando aerolíneas o comprando en una sola */
+.alts { padding: 10px var(--pad) 12px; border-bottom: 1px solid var(--line); display: grid; gap: 6px; }
+.alts .atitle {
+  font-size: 10px; text-transform: uppercase; letter-spacing: 1px;
+  color: var(--muted); font-weight: 700;
+}
+.alt {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  font-size: 13px; padding: 7px 10px;
+  background: var(--panel2); border: 1px solid var(--line); border-radius: 10px;
+}
+.alt .aname { font-weight: 600; }
+.alt .atimes { font-size: 12px; font-variant-numeric: tabular-nums; }
+.alt .atotal { font-weight: 700; font-variant-numeric: tabular-nums; }
+.alt .atotal.good { color: var(--good); }
+.alt .adif { font-size: 11.5px; font-variant-numeric: tabular-nums; }
+.alt .alinks { display: flex; gap: 6px; }
+.alt .alinks .btn { display: inline-flex; align-items: center; gap: 5px; }
+
 .foot { padding: 9px var(--pad); background: #0d132a66; }
 
 /* ---------- diálogo ---------- */

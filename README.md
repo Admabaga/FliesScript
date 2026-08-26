@@ -53,9 +53,16 @@ repo, así que los scrapers las importan de ahí. Se arman al mostrarlas: cambia
 los adultos actualiza el enlace sin esperar la siguiente revisión.
 
 **Ida y vuelta se consulta como dos búsquedas de solo ida** (la de ida y la de
-regreso con origen/destino al revés). Es como cotizan estas tres, deja el precio
-de cada tramo a la vista y permite combinar la ida en una aerolínea con la vuelta
-en otra si sale mejor.
+regreso con origen/destino al revés). Es como cotizan estas tres y deja el precio
+de cada tramo a la vista.
+
+Gracias a eso, **mezclar aerolíneas es la norma, no la excepción**: cada vuelo de
+ida se empareja con la vuelta más barata que haya, sea de la aerolínea que sea, y
+también con la más barata de su propia aerolínea (que es una sola compra). La
+tarjeta muestra la mejor compra y, debajo, *Otras combinaciones*: una por
+combinación de aerolíneas, con su total, cuánto más cuesta que la mejor y **un
+enlace por aerolínea** — cuando la compra es híbrida son dos compras, y así se
+dice. El WhatsApp lo avisa igual.
 
 JetSMART necesita `patchright` (fork de Playwright sin las fugas de CDP) porque
 Imperva redirige a Playwright estándar a la home.

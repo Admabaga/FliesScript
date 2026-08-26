@@ -170,6 +170,35 @@ function lineaTramo(etiqueta, leg, dia, conAerolinea) {
   </div>`;
 }
 
+/** "Wingo ida · Avianca vuelta" o "Todo en Wingo". */
+function tituloCombo(c) {
+  if (!c.ret) return esc(c.out.airline);
+  return c.mixed
+    ? `${esc(c.out.airline)} ida · ${esc(c.ret.airline)} vuelta`
+    : `Todo en ${esc(c.out.airline)}`;
+}
+
+/**
+ * Un botón por aerolínea: si la compra es híbrida son dos compras separadas, y
+ * cada enlace abre su buscador con la fecha y los pasajeros ya puestos.
+ */
+function enlacesCompra(c, { compacto = false } = {}) {
+  return [c.out, c.ret]
+    .filter(Boolean)
+    .filter((l, i, todos) => todos.findIndex((x) => x.airline === l.airline) === i)
+    .filter((l) => l.url)
+    .map((l) => {
+      const texto = c.mixed
+        ? `${esc(l.airline)}${compacto ? "" : l === c.out ? " (ida)" : " (vuelta)"}`
+        : compacto
+          ? "Comprar"
+          : "Ir a comprar";
+      return `<a class="btn mini" href="${esc(l.url)}" target="_blank" rel="noopener"
+        >${texto} ${IC.ext}</a>`;
+    })
+    .join("");
+}
+
 function panelMejorCompra(w) {
   const c = w.best;
   if (!c) {
@@ -181,17 +210,6 @@ function panelMejorCompra(w) {
 
   const equipajePagado =
     (c.out.option.extra || 0) + (c.ret ? c.ret.option.extra || 0 : 0);
-  const enlaces = [c.out, c.ret]
-    .filter(Boolean)
-    .filter((l, i, todos) => todos.findIndex((x) => x.airline === l.airline) === i)
-    .filter((l) => l.url)
-    .map(
-      (l) =>
-        `<a class="btn mini" href="${esc(l.url)}" target="_blank" rel="noopener">${
-          c.mixed ? esc(l.airline) : "Ir a comprar"
-        } ${IC.ext}</a>`
-    )
-    .join("");
 
   return `<div class="best ${c.hit ? "hit" : ""}">
     <div class="bhead">
@@ -200,8 +218,8 @@ function panelMejorCompra(w) {
       <span class="btotal">${fuente(c.source).mark}${money(c.total)}</span>
     </div>
     <div class="bsub">
-      <b>${esc(c.airline)}</b>${
-        c.mixed ? " <span class='muted'>· cada tramo en su aerolínea</span>" : ""
+      <b>${tituloCombo(c)}</b>${
+        c.mixed ? " <span class='muted'>· son dos compras, una en cada aerolínea</span>" : ""
       }
       <span class="muted">· ${plural(c.adults, "persona")} · ${
         w.return_date ? "ida y vuelta" : "solo ida"
@@ -229,7 +247,36 @@ function panelMejorCompra(w) {
           : "sin equipaje pago"
       }</span>
     </div>
-    <div class="brow">${enlaces}</div>
+    <div class="brow">${enlacesCompra(c)}</div>
+  </div>`;
+}
+
+/**
+ * Las otras compras que valen la pena: la mezclada y la de una sola aerolínea
+ * conviven, para poder elegir entre ahorrar o comprar de una sola vez.
+ */
+function bloqueAlternativas(w) {
+  const otras = w.alternatives || [];
+  if (!otras.length) return "";
+  const extra = w.best ? " " : "";
+  return `<div class="alts">
+    <div class="atitle">Otras combinaciones${extra}</div>
+    ${otras
+      .map((c) => {
+        const dif = w.best ? c.total - w.best.total : 0;
+        return `<div class="alt">
+        <span class="aname">${tituloCombo(c)}</span>
+        <span class="atimes muted">${esc(c.out.depart_time || "--:--")}${
+          c.ret ? " · vuelta " + esc(c.ret.depart_time || "--:--") : ""
+        }</span>
+        <span class="grow"></span>
+        ${/* El verde se reserva para la mejor compra: aquí solo la diferencia. */ ""}
+        <span class="atotal">${fuente(c.source).mark}${money(c.total)}</span>
+        <span class="adif muted">${dif > 0 ? `+${money(dif)}` : ""}</span>
+        <span class="alinks">${enlacesCompra(c, { compacto: true })}</span>
+      </div>`;
+      })
+      .join("")}
   </div>`;
 }
 
@@ -262,6 +309,7 @@ export function renderWatch(w) {
       </div>
     </div>
     ${panelMejorCompra(w)}
+    ${bloqueAlternativas(w)}
     <div class="airlines">${AEROLINEAS.map((a) => bloqueAerolinea(w, a)).join("")}</div>
     <div class="foot muted small">
       Precios por pasajero y por trayecto${

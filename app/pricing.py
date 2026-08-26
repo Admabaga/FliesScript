@@ -98,12 +98,25 @@ def _combo(watch: dict, out: dict, ret: dict | None) -> dict:
     }
 
 
+def _mas_barata(legs: list[dict]) -> dict | None:
+    return min(legs, key=lambda l: l["option"]["price"], default=None)
+
+
 def combos(watch: dict, flights: list[dict]) -> list[dict]:
     """Las compras posibles, ordenadas por total.
 
-    Solo ida: una por vuelo. Ida y vuelta: cada vuelo de ida con la vuelta más
-    barata de su misma aerolínea (una sola compra, un solo link) y, si mezclar
-    aerolíneas sale mejor, se añade esa combinación aparte.
+    Solo ida: una por vuelo.
+
+    Ida y vuelta: **mezclar aerolíneas es lo normal, no la excepción**. Nadie
+    obliga a volver en la misma con la que se fue, y a menudo la ida está en una
+    y la vuelta en otra. Así que cada vuelo de ida se empareja con:
+
+      - la vuelta más barata que haya, sea de la aerolínea que sea (dos compras,
+        un link por aerolínea), y
+      - la vuelta más barata de su propia aerolínea, cuando es otra: sigue
+        valiendo la pena verla porque es una sola compra.
+
+    Las dos salen en la lista con su total, y la pantalla muestra ambas.
     """
     bag = watch.get("bag_level") or baggage.ANY
     usable = [f for f in annotate(flights, bag, watch) if f["option"]]
@@ -116,27 +129,25 @@ def combos(watch: dict, flights: list[dict]) -> list[dict]:
     if not rets:
         return []
 
-    cheapest_ret = {}
+    vuelta_global = _mas_barata(rets)
+    vuelta_por_aerolinea: dict[str, dict] = {}
     for r in rets:
-        cur = cheapest_ret.get(r["airline"])
-        if cur is None or r["option"]["price"] < cur["option"]["price"]:
-            cheapest_ret[r["airline"]] = r
+        actual = vuelta_por_aerolinea.get(r["airline"])
+        if actual is None or r["option"]["price"] < actual["option"]["price"]:
+            vuelta_por_aerolinea[r["airline"]] = r
 
-    out_list = []
+    posibles, vistas = [], set()
     for o in outs:
-        r = cheapest_ret.get(o["airline"])
-        if r:
-            out_list.append(_combo(watch, o, r))
+        for r in (vuelta_global, vuelta_por_aerolinea.get(o["airline"])):
+            if r is None:
+                continue
+            clave = (o["airline"], o["depart_time"], r["airline"], r["depart_time"])
+            if clave in vistas:
+                continue
+            vistas.add(clave)
+            posibles.append(_combo(watch, o, r))
 
-    # ¿Sale mejor comprar la ida en una aerolínea y la vuelta en otra?
-    best_out = min(outs, key=lambda l: l["option"]["price"], default=None)
-    best_ret = min(rets, key=lambda l: l["option"]["price"], default=None)
-    if best_out and best_ret and best_out["airline"] != best_ret["airline"]:
-        mixed = _combo(watch, best_out, best_ret)
-        if not out_list or mixed["total"] < min(c["total"] for c in out_list):
-            out_list.append(mixed)
-
-    return sorted(out_list, key=lambda c: c["total"])
+    return sorted(posibles, key=lambda c: c["total"])
 
 
 def combo_key(watch_id: int, combo: dict) -> str:
@@ -153,17 +164,53 @@ def combo_key(watch_id: int, combo: dict) -> str:
     return "|".join(partes)
 
 
+MAX_ALTERNATIVAS = 3
+
+
+def _par_aerolineas(c: dict) -> tuple:
+    return (c["out"]["airline"], c["ret"]["airline"] if c["ret"] else None)
+
+
+def alternativas(todos: list[dict]) -> list[dict]:
+    """Las otras compras que vale la pena mirar, además de la más barata.
+
+    Se agrupan por **combinación de aerolíneas**, que es la decisión de verdad
+    (Wingo ida + Avianca vuelta, o todo en Wingo); tres opciones con el mismo par
+    y distinta hora no aportan nada. Y si la mejor es híbrida se asegura enseñar
+    la mejor de una sola aerolínea, y al revés: una ahorra plata, la otra evita
+    hacer dos compras.
+    """
+    if len(todos) < 2:
+        return []
+
+    mejor = todos[0]
+    par_mejor = _par_aerolineas(mejor)
+
+    por_par: dict[tuple, dict] = {}
+    for c in todos[1:]:
+        par = _par_aerolineas(c)
+        if par == par_mejor:
+            continue
+        if par not in por_par or c["total"] < por_par[par]["total"]:
+            por_par[par] = c
+
+    ordenadas = sorted(por_par.values(), key=lambda c: c["total"])
+    elegidas = ordenadas[:MAX_ALTERNATIVAS]
+
+    contraparte = next((c for c in ordenadas if c["mixed"] != mejor["mixed"]), None)
+    if contraparte is not None and contraparte not in elegidas:
+        elegidas = elegidas[: MAX_ALTERNATIVAS - 1] + [contraparte]
+
+    return sorted(elegidas, key=lambda c: c["total"])
+
+
 def summary(watch: dict, flights: list[dict]) -> dict:
-    """Lo que la pantalla necesita: vuelos con precio, mejores compras y total."""
+    """Lo que la pantalla necesita: vuelos con precio, la mejor compra y las otras."""
     bag = watch.get("bag_level") or baggage.ANY
     todos = combos(watch, flights)
-    por_aerolinea = {}
-    for c in todos:
-        if not c["mixed"] and c["airline"] not in por_aerolinea:
-            por_aerolinea[c["airline"]] = c
     return {
         "flights": annotate(flights, bag, watch),
         "combos": todos[:12],
         "best": todos[0] if todos else None,
-        "best_by_airline": por_aerolinea,
+        "alternatives": alternativas(todos),
     }

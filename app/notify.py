@@ -84,7 +84,14 @@ def build_message(watch: dict, hits: list[dict]) -> str:
         else:
             marca = "🆕"
         aprox = "≈" if c["source"] == "estimado" else ""
-        lines.append(f"• {c['airline']} — {aprox}{fmt(c['total'])} el total {marca}")
+        titulo = (
+            f"{c['out']['airline']} ida · {c['ret']['airline']} vuelta"
+            if c["mixed"]
+            else c["airline"]
+        )
+        lines.append(f"• {titulo} — {aprox}{fmt(c['total'])} el total {marca}")
+        if c["mixed"]:
+            lines.append("  (dos compras, una en cada aerolínea)")
         lines.append(leg_line("Ida", c["out"], watch["date"], c["mixed"]))
         if c["ret"]:
             lines.append(leg_line("Vta", c["ret"], watch.get("return_date"), c["mixed"]))
