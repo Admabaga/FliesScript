@@ -10,6 +10,9 @@ CREATE TABLE IF NOT EXISTS watches (
     origin      TEXT NOT NULL,
     destination TEXT NOT NULL,
     date        TEXT NOT NULL,
+    return_date TEXT,
+    adults      INTEGER NOT NULL DEFAULT 1,
+    bag_level   TEXT NOT NULL DEFAULT 'any',
     max_price   INTEGER NOT NULL,
     active      INTEGER NOT NULL DEFAULT 1,
     created_at  TEXT NOT NULL DEFAULT (datetime('now'))
@@ -19,6 +22,7 @@ CREATE TABLE IF NOT EXISTS flights (
     id           INTEGER PRIMARY KEY AUTOINCREMENT,
     watch_id     INTEGER NOT NULL,
     airline      TEXT NOT NULL,
+    direction    TEXT NOT NULL DEFAULT 'out',
     depart_time  TEXT,
     arrive_time  TEXT,
     duration     TEXT,
@@ -27,6 +31,17 @@ CREATE TABLE IF NOT EXISTS flights (
     url          TEXT,
     scraped_at   TEXT NOT NULL DEFAULT (datetime('now')),
     FOREIGN KEY (watch_id) REFERENCES watches(id) ON DELETE CASCADE
+);
+
+-- Un vuelo se vende a varios precios segun el equipaje: una fila por tarifa.
+CREATE TABLE IF NOT EXISTS fares (
+    id        INTEGER PRIMARY KEY AUTOINCREMENT,
+    flight_id INTEGER NOT NULL,
+    name      TEXT,
+    level     TEXT NOT NULL,
+    price     INTEGER NOT NULL,
+    source    TEXT NOT NULL DEFAULT 'estimado',
+    FOREIGN KEY (flight_id) REFERENCES flights(id) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS scan_status (
@@ -64,9 +79,30 @@ def conn():
         c.close()
 
 
+# Columnas añadidas después de la primera versión. Las bases que ya existen no se
+# recrean con el SCHEMA, así que hay que agregarlas a mano.
+MIGRATIONS = {
+    "watches": {
+        "return_date": "TEXT",
+        "adults": "INTEGER NOT NULL DEFAULT 1",
+        "bag_level": "TEXT NOT NULL DEFAULT 'any'",
+    },
+    "flights": {"direction": "TEXT NOT NULL DEFAULT 'out'"},
+}
+
+
+def migrate(c):
+    for table, columns in MIGRATIONS.items():
+        have = {r["name"] for r in c.execute(f"PRAGMA table_info({table})").fetchall()}
+        for name, decl in columns.items():
+            if name not in have:
+                c.execute(f"ALTER TABLE {table} ADD COLUMN {name} {decl}")
+
+
 def init():
     with conn() as c:
         c.executescript(SCHEMA)
+        migrate(c)
         for key, value in SETTING_DEFAULTS.items():
             c.execute(
                 "INSERT INTO settings(key, value) VALUES(?, ?) "
@@ -102,18 +138,46 @@ def list_watches(only_active: bool = False) -> list[dict]:
         return [dict(r) for r in c.execute(sql).fetchall()]
 
 
-def add_watch(origin, destination, date, max_price) -> int:
+def add_watch(
+    origin,
+    destination,
+    date,
+    max_price,
+    return_date=None,
+    adults=1,
+    bag_level="any",
+) -> int:
     with conn() as c:
         cur = c.execute(
-            "INSERT INTO watches(origin, destination, date, max_price) VALUES(?,?,?,?)",
-            (origin.upper(), destination.upper(), date, int(max_price)),
+            "INSERT INTO watches(origin, destination, date, return_date, adults,"
+            " bag_level, max_price) VALUES(?,?,?,?,?,?,?)",
+            (
+                origin.upper(),
+                destination.upper(),
+                date,
+                return_date or None,
+                int(adults or 1),
+                bag_level or "any",
+                int(max_price),
+            ),
         )
         return cur.lastrowid
 
 
 def update_watch(watch_id: int, **fields):
-    allowed = {"origin", "destination", "date", "max_price", "active"}
+    allowed = {
+        "origin",
+        "destination",
+        "date",
+        "return_date",
+        "adults",
+        "bag_level",
+        "max_price",
+        "active",
+    }
     fields = {k: v for k, v in fields.items() if k in allowed and v is not None}
+    if "return_date" in fields and not fields["return_date"]:
+        fields["return_date"] = None  # "" = volvió a ser solo ida
     if not fields:
         return
     sets = ", ".join(f"{k} = ?" for k in fields)
@@ -129,25 +193,33 @@ def delete_watch(watch_id: int):
 
 
 def replace_flights(watch_id: int, airline: str, flights: list[dict]):
+    """Reemplaza los vuelos de una aerolínea (ida y vuelta) con sus tarifas."""
     with conn() as c:
         c.execute("DELETE FROM flights WHERE watch_id = ? AND airline = ?", (watch_id, airline))
-        c.executemany(
-            "INSERT INTO flights(watch_id, airline, depart_time, arrive_time, duration,"
-            " flight_no, price, url) VALUES(?,?,?,?,?,?,?,?)",
-            [
+        for f in flights:
+            cur = c.execute(
+                "INSERT INTO flights(watch_id, airline, direction, depart_time, arrive_time,"
+                " duration, flight_no, price, url) VALUES(?,?,?,?,?,?,?,?,?)",
                 (
                     watch_id,
                     airline,
+                    f.get("direction") or "out",
                     f.get("depart_time"),
                     f.get("arrive_time"),
                     f.get("duration"),
                     f.get("flight_no"),
                     int(f["price"]),
                     f.get("url"),
-                )
-                for f in flights
-            ],
-        )
+                ),
+            )
+            c.executemany(
+                "INSERT INTO fares(flight_id, name, level, price, source) VALUES(?,?,?,?,?)",
+                [
+                    (cur.lastrowid, t.get("name"), t["level"], int(t["price"]),
+                     t.get("source") or "estimado")
+                    for t in (f.get("fares") or [])
+                ],
+            )
 
 
 def set_status(watch_id: int, airline: str, status: str, message: str = ""):
@@ -168,7 +240,22 @@ def get_flights(watch_id: int) -> list[dict]:
             "SELECT * FROM flights WHERE watch_id = ? ORDER BY price, depart_time",
             (watch_id,),
         ).fetchall()
-    return [dict(r) for r in rows]
+        flights = [dict(r) for r in rows]
+        if not flights:
+            return []
+        fares = c.execute(
+            "SELECT f.* FROM fares f JOIN flights v ON v.id = f.flight_id"
+            " WHERE v.watch_id = ? ORDER BY f.price",
+            (watch_id,),
+        ).fetchall()
+    by_flight = {}
+    for f in fares:
+        by_flight.setdefault(f["flight_id"], []).append(
+            {"name": f["name"], "level": f["level"], "price": f["price"], "source": f["source"]}
+        )
+    for flight in flights:
+        flight["fares"] = by_flight.get(flight["id"], [])
+    return flights
 
 
 def get_statuses(watch_id: int) -> list[dict]:

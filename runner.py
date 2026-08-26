@@ -35,20 +35,53 @@ def friendly_error(exc: Exception) -> str:
     return "no se pudo leer la página; se reintenta luego"
 
 
-async def scrape_one(module, watch: dict) -> dict:
+async def scrape_leg(module, origin: str, destination: str, date: str, adults: int) -> dict:
+    """Un trayecto en una aerolínea, con reintento."""
     for attempt in range(RETRIES):
         try:
             await keep_only(module.ENGINE)
-            flights = await module.scrape(watch["origin"], watch["destination"], watch["date"])
-            log.info("%s %s->%s %s: %s vuelos", module.NAME, watch["origin"],
-                     watch["destination"], watch["date"], len(flights))
-            return {"status": "ok" if flights else "vacio", "flights": flights}
+            res = await module.scrape(origin, destination, date, adults)
+            flights, ladder = res["flights"], res.get("ladder") or {}
+            log.info("%s %s->%s %s: %s vuelos, equipaje %s", module.NAME, origin, destination,
+                     date, len(flights),
+                     "leído" if ladder.get("deltas") else f"sin panel ({ladder.get('error', '-')})")
+            return {"status": "ok" if flights else "vacio", "flights": flights, "ladder": ladder}
         except Exception as exc:  # noqa: BLE001
             log.warning("%s intento %s/%s: %s", module.NAME, attempt + 1, RETRIES, str(exc)[:120])
             if attempt < RETRIES - 1:
                 await asyncio.sleep(20)
             else:
                 return {"status": "error", "message": friendly_error(exc), "flights": []}
+
+
+async def scrape_one(module, watch: dict) -> dict:
+    """Ida y, si la fecha lo pide, vuelta. Se consultan como dos búsquedas de solo
+    ida: es como cotizan las tres y así el precio de cada tramo queda a la vista."""
+    adults = max(1, int(watch.get("adults") or 1))
+    legs = [("out", watch["origin"], watch["destination"], watch["date"])]
+    if watch.get("return_date"):
+        legs.append(("ret", watch["destination"], watch["origin"], watch["return_date"]))
+
+    flights, ladders, fallos = [], {}, []
+    for i, (direction, origin, destination, date) in enumerate(legs):
+        if i:
+            await asyncio.sleep(PACE_S)
+        res = await scrape_leg(module, origin, destination, date, adults)
+        nombre = "ida" if direction == "out" else "vuelta"
+        if res["status"] == "error":
+            fallos.append(f"{nombre}: {res.get('message', 'no se pudo leer')}")
+            continue
+        if res["status"] == "vacio":
+            fallos.append(f"{nombre}: sin vuelos")
+            continue
+        flights += [{**f, "direction": direction} for f in res["flights"]]
+        ladders[direction] = res["ladder"]
+
+    if not flights:
+        estado = "error" if any("sin vuelos" not in f for f in fallos) else "vacio"
+        return {"status": estado, "message": " · ".join(fallos), "flights": []}
+    return {"status": "ok", "flights": flights, "ladders": ladders,
+            "message": " · ".join(fallos)}
 
 
 async def main() -> int:

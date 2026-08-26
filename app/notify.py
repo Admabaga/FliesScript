@@ -1,13 +1,21 @@
 import asyncio
 import re
+from datetime import date
 from urllib.parse import quote
 
 import httpx
 
-from . import db, whatsapp
+from . import baggage, db, whatsapp
 
 
 SIN_DESTINATARIOS = "sin números configurados"
+
+# Cuántas compras caben en un mensaje antes de volverse ilegible (y de que
+# CallMeBot lo corte en 900 caracteres).
+MAX_EN_MENSAJE = 3
+
+DIAS = ["lun", "mar", "mié", "jue", "vie", "sáb", "dom"]
+MESES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"]
 
 
 def fmt(price: int) -> str:
@@ -15,29 +23,105 @@ def fmt(price: int) -> str:
     return "$" + f"{int(price):,}".replace(",", ".")
 
 
+def fecha_corta(iso: str | None) -> str:
+    """'2026-09-25' -> 'vie 25 sep'."""
+    if not iso:
+        return "?"
+    try:
+        d = date.fromisoformat(iso)
+    except ValueError:
+        return iso
+    return f"{DIAS[d.weekday()]} {d.day} {MESES[d.month - 1]}"
+
+
+def leg_line(etiqueta: str, leg: dict, fecha: str | None, con_aerolinea: bool = False) -> str:
+    """'Ida vie 25 sep 05:22→06:20 · Go Standard (mano 10 kg) · $159.102 p/p'"""
+    o = leg["option"]
+    horas = leg.get("depart_time") or "?"
+    if leg.get("arrive_time"):
+        horas += f"→{leg['arrive_time']}"
+    partes = [f"{etiqueta} {fecha_corta(fecha)} {horas}"]
+    if con_aerolinea:
+        partes.append(leg["airline"])
+    nombre = o.get("fare_name")
+    partes.append(f"{nombre} ({o['short']})" if nombre else o["label"])
+    aprox = "≈" if o["source"] == "estimado" else ""
+    partes.append(f"{aprox}{fmt(o['price'])} p/p")
+    return "  " + " · ".join(partes)
+
+
 def build_message(watch: dict, hits: list[dict]) -> str:
-    route = f"{watch['origin']}→{watch['destination']}"
-    cheapest = min(h["price"] for h in hits)
-    bajadas = [h for h in hits if h.get("novedad") == "bajo"]
+    """El mensaje de WhatsApp: cuánto es el total y qué equipaje trae ese precio."""
+    adults = max(1, int(watch.get("adults") or 1))
+    ida_vuelta = bool(watch.get("return_date"))
+    compras = sorted(hits, key=lambda c: c["total"])
+    bajadas = [c for c in compras if c.get("novedad") == "bajo"]
+
     titulo = "📉 Bajó de precio" if bajadas else "✈️ Nueva oferta"
+    ruta = f"{watch['origin']}→{watch['destination']}"
+    fechas = fecha_corta(watch["date"])
+    if ida_vuelta:
+        fechas += f" → {fecha_corta(watch['return_date'])}"
+
+    pedido = watch.get("bag_level") or baggage.ANY
+    if pedido in baggage.RANK:
+        equipaje = f"{baggage.ICON[pedido]} {baggage.LABEL[pedido]} — {baggage.DETAIL[pedido]}"
+    else:
+        equipaje = "💸 El más barato, sin exigir equipaje"
+
+    viajeros = f"{adults} adulto" + ("s" if adults > 1 else "")
     lines = [
-        f"{titulo} · {route} · {watch['date']}",
-        f"Desde {fmt(cheapest)} (tu filtro: menos de {fmt(watch['max_price'])})",
+        f"{titulo} · {ruta}",
+        f"🗓 {fechas} · 👤 {viajeros}" + (" · ida y vuelta" if ida_vuelta else " · solo ida"),
+        equipaje,
+        f"💰 Total desde {fmt(compras[0]['total'])} · tu filtro: menos de {fmt(watch['max_price'])}",
         "",
     ]
-    for h in sorted(hits, key=lambda x: x["price"]):
-        hora = h.get("depart_time") or "?"
-        llegada = f"-{h['arrive_time']}" if h.get("arrive_time") else ""
-        if h.get("novedad") == "bajo":
-            cambio = f"  ↓ antes {fmt(h['antes'])}"
+
+    for c in compras[:MAX_EN_MENSAJE]:
+        if c.get("novedad") == "bajo":
+            marca = f"↓ antes {fmt(c['antes'])}"
         else:
-            cambio = "  🆕"
-        lines.append(f"• {h['airline']} {hora}{llegada} → {fmt(h['price'])}{cambio}")
-    lines.append("")
-    for airline in sorted({h["airline"] for h in hits}):
-        url = next((h["url"] for h in hits if h["airline"] == airline and h.get("url")), None)
-        if url:
-            lines.append(url)
+            marca = "🆕"
+        aprox = "≈" if c["source"] == "estimado" else ""
+        lines.append(f"• {c['airline']} — {aprox}{fmt(c['total'])} el total {marca}")
+        lines.append(leg_line("Ida", c["out"], watch["date"], c["mixed"]))
+        if c["ret"]:
+            lines.append(leg_line("Vta", c["ret"], watch.get("return_date"), c["mixed"]))
+        extra = c["out"]["option"]["extra"] + (c["ret"]["option"]["extra"] if c["ret"] else 0)
+        tramos = ""
+        if c["ret"]:
+            tramos = f" (ida {fmt(c['out']['option']['price'])} + vuelta {fmt(c['ret']['option']['price'])})"
+        personas = f"{adults} persona" + ("s" if adults > 1 else "")
+        # Con un solo pasajero y un solo tramo, el desglose repetiría el total.
+        if adults > 1 or c["ret"]:
+            lines.append(
+                f"  Por persona {fmt(c['per_person'])}{tramos} × {personas} = {fmt(c['total'])} total"
+            )
+        if extra:
+            lines.append(
+                f"  De cada persona, {fmt(extra)} es el equipaje "
+                f"({fmt(c['per_person'] - extra)} el vuelo)."
+            )
+        else:
+            lines.append("  Ese precio no incluye ningún equipaje pago.")
+        if c["out"].get("url"):
+            lines.append(f"  {c['out']['url']}")
+        if c["ret"] and c["mixed"] and c["ret"].get("url"):
+            lines.append(f"  {c['ret']['url']}")
+
+    if len(compras) > MAX_EN_MENSAJE:
+        lines.append(f"…y {len(compras) - MAX_EN_MENSAJE} opciones más en la app.")
+
+    fuentes = {c["source"] for c in compras[:MAX_EN_MENSAJE]}
+    if "estimado" in fuentes:
+        lines.append("")
+        lines.append("⚠️ No se pudo abrir el panel de tarifas: el precio del equipaje es una "
+                     "estimación. Verifica antes de pagar.")
+    elif "derivado" in fuentes:
+        lines.append("")
+        lines.append("ℹ️ El costo del equipaje es el que cobra hoy la aerolínea en esa ruta, "
+                     "leído en el vuelo más barato del día.")
     return "\n".join(lines)
 
 

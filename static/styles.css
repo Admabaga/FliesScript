@@ -43,7 +43,9 @@ header {
   font-weight: 800; font-size: 20px; letter-spacing: -.4px;
   display: flex; align-items: center; gap: 8px; margin-right: auto;
 }
-.plane { color: var(--accent); font-size: 22px; }
+.ic { width: 15px; height: 15px; flex: none; vertical-align: -2.5px; }
+.plane { width: 20px; height: 20px; color: var(--accent); }
+.btn .ic { vertical-align: -3px; }
 .scanbar { padding: 8px var(--pad) 0; font-size: 12px; text-align: right; }
 
 /* ---------- base ---------- */
@@ -80,9 +82,54 @@ code { background: var(--panel2); padding: 2px 6px; border-radius: 6px; font-siz
 .btn.wide { width: 100%; }
 .btn.mini { padding: 7px 11px; font-size: 13px; border-radius: 10px; }
 
-/* ---------- formulario de alta ---------- */
-#watchForm { display: grid; gap: 10px; grid-template-columns: 1fr 1fr; }
-#watchForm label:nth-child(3), #watchForm label:nth-child(4), #watchForm button { grid-column: 1 / -1; }
+/* ---------- formulario de búsqueda ---------- */
+.sform { display: grid; gap: 12px; }
+.frow { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-items: end; }
+.frow > label[hidden] { display: none; }
+
+/* solo ida / ida y vuelta */
+.seg {
+  display: flex; gap: 4px; padding: 4px;
+  background: var(--panel2); border: 1px solid var(--line); border-radius: 12px;
+}
+.chip {
+  flex: 1; background: transparent; border: none; color: var(--muted);
+  padding: 9px 8px; border-radius: 9px; font: inherit; font-size: 14px; cursor: pointer;
+}
+.chip.on { background: var(--accent); color: #05091a; font-weight: 700; }
+
+.stepper { display: flex; align-items: center; gap: 8px; }
+.stepper input {
+  width: 76px; text-align: center; font-weight: 700; font-variant-numeric: tabular-nums;
+}
+.stepper input::-webkit-outer-spin-button, .stepper input::-webkit-inner-spin-button {
+  -webkit-appearance: none; margin: 0;
+}
+
+/* equipaje: cada opción dice qué entra y qué no */
+.bags {
+  border: 1px solid var(--line); border-radius: 12px; padding: 10px;
+  margin: 0; display: grid; gap: 6px; background: var(--panel2);
+}
+.bags legend { font-size: 12px; color: var(--muted); padding: 0 6px; }
+.bagopt {
+  position: relative; display: grid; grid-template-columns: 26px 1fr; gap: 1px 8px;
+  padding: 9px 10px; border-radius: 10px; border: 1px solid transparent; cursor: pointer;
+}
+.bagopt input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.bagopt .bagicon { grid-row: 1 / span 2; font-size: 19px; line-height: 1.2; }
+.bagopt .baglab { font-size: 14px; font-weight: 600; color: var(--txt); }
+.bagopt .bagdet { font-size: 12px; color: var(--muted); line-height: 1.35; }
+.bagopt.on { border-color: var(--accent); background: #6c8cff16; }
+.bagopt:focus-within { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+.hint {
+  margin: 0; font-size: 12.5px; color: var(--muted);
+  background: var(--panel2); border-left: 3px solid var(--accent);
+  padding: 9px 11px; border-radius: 8px;
+}
+.adv { margin-top: 14px; border-top: 1px solid var(--line); padding-top: 10px; }
+.adv summary { cursor: pointer; font-size: 13px; color: var(--muted); }
 
 /* ---------- tarjeta de fecha ---------- */
 .watch {
@@ -90,10 +137,19 @@ code { background: var(--panel2); padding: 2px 6px; border-radius: 6px; font-siz
   border-radius: var(--r); margin-bottom: 16px; overflow: hidden;
 }
 .watch.hit { border-color: var(--good); box-shadow: 0 0 0 1px var(--good) inset, 0 8px 30px -12px #34d39955; }
-.wh { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: var(--pad); background: var(--panel2); }
+/* Cabecera en dos líneas: quién y a dónde arriba; las condiciones abajo, en
+   una sola frase legible en vez de cinco etiquetas de colores. */
+.wh { display: grid; gap: 7px; padding: var(--pad); background: var(--panel2); }
+.whtop { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.whsub {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 6px;
+  font-size: 12.5px; color: var(--muted);
+}
+.whsub .ic { width: 13px; height: 13px; margin-right: 3px; }
+.dot-sep { width: 3px; height: 3px; border-radius: 50%; background: #ffffff3d; }
 .wh .route { font-weight: 800; font-size: 18px; letter-spacing: -.3px; }
 .wh .codes { font-size: 12px; letter-spacing: .5px; }
-.wh .date { color: var(--accent); font-weight: 700; font-size: 14px; }
+.wh .date { color: var(--txt); font-weight: 700; }
 select {
   background: var(--panel2); border: 1px solid var(--line); color: var(--txt);
   border-radius: 12px; padding: 12px 32px 12px 12px; font-size: 16px; width: 100%;
@@ -105,11 +161,9 @@ select {
   background-repeat: no-repeat;
 }
 select:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
-.wh .acts { display: flex; gap: 6px; width: 100%; }
-.badge { font-size: 12px; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--line); background: #0d132a; }
-.badge.good { color: var(--good); border-color: #34d39955; }
+.wh .acts { display: flex; gap: 6px; }
 
-.airlines { display: grid; grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)); gap: 1px; background: var(--line); }
+.airlines { display: grid; grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); gap: 1px; background: var(--line); }
 .al { background: var(--panel); padding: 12px var(--pad); }
 .al h3 {
   margin: 0 0 10px; font-size: 13px; text-transform: uppercase; letter-spacing: .8px;
@@ -121,24 +175,111 @@ select:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
 .al[data-a="Avianca"]   { --dot: var(--avianca); }
 .al h3 span { color: var(--dot); }
 
-.fl {
-  display: flex; align-items: baseline; gap: 8px;
-  padding: 9px 0; border-bottom: 1px solid #ffffff0d;
+/* ---------- un vuelo, con su desglose de tarifas ---------- */
+.dir h4 {
+  margin: 12px 0 4px; font-size: 11px; letter-spacing: .6px;
+  text-transform: uppercase; color: var(--muted); font-weight: 700;
 }
-.fl:last-child { border-bottom: none; }
-.fl .time { font-variant-numeric: tabular-nums; font-size: 15px; }
+.dir:first-child h4 { margin-top: 2px; }
+
+details.fl { border-bottom: 1px solid #ffffff0d; }
+details.fl:last-child { border-bottom: none; }
+/* Dos líneas: arriba hora y precio; abajo qué equipaje trae y el detalle. */
+details.fl > summary {
+  display: grid; gap: 3px; padding: 9px 0; cursor: pointer; list-style: none;
+}
+details.fl > summary::-webkit-details-marker { display: none; }
+.fmain { display: flex; align-items: baseline; gap: 8px; }
+.fsub { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.fsub::after { content: "ver tarifas ▾"; color: var(--muted); font-size: 10.5px; margin-left: auto; }
+details.fl[open] .fsub::after { content: "ocultar ▴"; }
+details.fl.inbest {
+  background: linear-gradient(90deg, #6c8cff14, transparent);
+  border-radius: 8px; padding-inline: 6px;
+}
+.fl .time { font-variant-numeric: tabular-nums; font-size: 15px; white-space: nowrap; }
 .fl .meta { font-size: 11px; color: var(--muted); }
-.fl .price { margin-left: auto; font-weight: 700; font-variant-numeric: tabular-nums; font-size: 15px; }
-.fl.under { background: linear-gradient(90deg, #34d39914, transparent); border-radius: 8px; padding-inline: 6px; }
-.fl.under .price { color: var(--good); }
-.fl.under .price::after { content: " 🔔"; }
+.fl .price {
+  margin-left: auto; font-weight: 700; font-variant-numeric: tabular-nums; font-size: 15px;
+  white-space: nowrap;
+}
+details.fl.inbest .price { color: var(--accent); }
+.fl .price i { font-size: 10px; font-weight: 400; color: var(--muted); font-style: normal; }
+.ftable caption {
+  caption-side: top; text-align: left; padding: 7px 8px 3px;
+  font-size: 10.5px; letter-spacing: .5px; text-transform: uppercase; color: var(--muted);
+}
+.bbreak { line-height: 1.5; font-size: 13px; padding-top: 6px; border-top: 1px dashed #ffffff14; }
+.btot2 { color: var(--txt); font-variant-numeric: tabular-nums; }
+.best.hit .btot2 { color: var(--good); }
+
+/* el equipaje, dicho con palabras */
+.lvl { color: var(--txt); cursor: help; }
+.lvl.personal { color: var(--muted); }
+.lvl.carry_on { color: #a5c4ff; }
+.lvl.checked { color: var(--warn); }
+
+.fbox { margin: 4px 0 12px; }
+.ftable {
+  width: 100%; border-collapse: collapse;
+  background: var(--panel2); border-radius: 10px; overflow: hidden;
+}
+.ftable td { padding: 7px 9px; font-size: 12.5px; border-top: 1px solid #ffffff0a; }
+.ftable tr:first-child td { border-top: none; }
+.ftable tr.pick { background: #6c8cff1c; }
+.ftable tr.pick td.lv { font-weight: 700; }
+.ftable .nmi { display: block; font-weight: 400; font-size: 11.5px; }
+.ftable td.p { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ftable td.dx { text-align: right; white-space: nowrap; font-size: 11.5px; }
+.fnote { margin: 6px 2px 0; line-height: 1.4; }
+.warn-txt {
+  display: flex; align-items: flex-start; gap: 6px;
+  color: var(--warn); margin-top: 10px; line-height: 1.4;
+}
+.warn-txt .ic { margin-top: 2px; }
+
 .al a { color: var(--accent); font-size: 13px; text-decoration: none; display: inline-block; margin-top: 10px; }
+
+/* ---------- mejor compra: el número manda, el resto susurra ---------- */
+.best { display: grid; gap: 9px; padding: 14px var(--pad); border-bottom: 1px solid var(--line); }
+.best.hit { background: linear-gradient(180deg, #34d39912, transparent); }
+.best.none { padding: 12px var(--pad); }
+.bhead { display: flex; align-items: center; gap: 8px; }
+.btitle {
+  font-size: 10px; text-transform: uppercase; letter-spacing: 1px;
+  color: var(--muted); font-weight: 700;
+}
+.best.hit .btitle { color: var(--good); }
+.btotal {
+  font-size: 24px; font-weight: 800; letter-spacing: -.6px;
+  font-variant-numeric: tabular-nums;
+}
+.best.hit .btotal { color: var(--good); }
+.bsub { font-size: 13.5px; }
+
+.legs { display: grid; gap: 1px; background: #ffffff0d; border-radius: 10px; overflow: hidden; }
+.leg {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  font-size: 13px; padding: 8px 10px; background: var(--panel);
+}
+.tag { font-size: 10px; font-weight: 700; letter-spacing: .6px; color: var(--muted); min-width: 20px; }
+.ltime { font-variant-numeric: tabular-nums; }
+.lday, .lbag { font-size: 12px; }
+.lprice { margin-left: auto; font-weight: 700; font-variant-numeric: tabular-nums; }
+.lprice i { font-weight: 400; font-size: 11px; color: var(--muted); font-style: normal; }
+.bbreak { font-size: 12.5px; line-height: 1.5; color: var(--txt); font-variant-numeric: tabular-nums; }
+.brow { display: flex; gap: 6px; flex-wrap: wrap; }
+.brow .btn { display: inline-flex; align-items: center; gap: 6px; }
+.foot { padding: 9px var(--pad); background: #0d132a66; }
 
 /* ---------- diálogo ---------- */
 dialog {
   border: 1px solid var(--line); border-radius: var(--r);
   background: var(--panel); color: var(--txt);
   width: min(560px, 94vw); padding: 18px; margin: auto;
+  /* El formulario completo no cabe en un móvil: que el diálogo haga scroll y
+     el botón de guardar siempre quede alcanzable. */
+  max-height: 92vh; overflow-y: auto;
 }
 dialog::backdrop { background: #000a; backdrop-filter: blur(3px); }
 #cfgForm { display: block; }
@@ -162,6 +303,14 @@ label.full { display: block; margin-bottom: 6px; }
   .wh .route { font-size: 17px; }
   .grid2 { grid-template-columns: 1fr; }
   .btn.mini { flex: 1; }
+  .frow { grid-template-columns: 1fr; }
+  .btotal { font-size: 21px; }
+  .wh .acts { width: 100%; }
+  /* La frase de condiciones parte en varias líneas: sin los puntitos, que
+     quedarían colgando al final de cada una. */
+  .whsub { column-gap: 12px; }
+  .whsub .dot-sep { display: none; }
+  .brow .btn.mini { flex: 1 1 auto; }
 }
 
 .nota { background: var(--panel2); border-left: 3px solid var(--accent); border-radius: 8px; padding: 10px 12px; margin-top: 14px; }

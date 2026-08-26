@@ -10,26 +10,47 @@
 </head>
 <body>
   <header>
-    <div class="brand"><span class="plane">✈</span>Flight</div>
-    <button id="btnScan" class="btn" title="Buscar ahora">↻<span class="lbl"> Actualizar</span></button>
-    <button id="btnCfg" class="btn ghost" title="Alertas">⚙<span class="lbl"> Alertas</span></button>
+    <div class="brand">
+      <svg class="ic plane" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"
+           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M3 12.5 20.5 4l-6 17-3-6.5-8.5-2Z"/>
+      </svg>Flight
+    </div>
+    <button id="btnScan" class="btn" title="Buscar ahora">
+      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"
+           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M20 12a8 8 0 1 1-2.4-5.7"/><path d="M20 4v3.5h-3.5"/>
+      </svg><span class="lbl"> Actualizar</span>
+    </button>
+    <button id="btnCfg" class="btn ghost" title="Alertas">
+      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"
+           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M18 9A6 6 0 0 0 6 9c0 5-2 6-2 6h16s-2-1-2-6"/><path d="M10.5 20a2 2 0 0 0 3 0"/>
+      </svg><span class="lbl"> Alertas</span>
+    </button>
   </header>
   <div id="lastScan" class="scanbar muted">—</div>
 
   <main>
     <section class="card">
-      <form id="watchForm">
-        <label>Origen<select name="origin" required></select></label>
-        <label>Destino<select name="destination" required></select></label>
-        <label>Fecha<input name="date" type="date" required></label>
-        <label>Avísame si baja de<input name="max_price" type="text" inputmode="numeric" class="money" value="200.000" required></label>
-        <button class="btn primary wide" type="submit">Agregar fecha</button>
-      </form>
+      <form id="watchForm" class="sform" novalidate></form>
     </section>
 
     <div id="watches"></div>
-    <p id="empty" class="muted center">Aún no hay fechas. Agrega la primera arriba.</p>
+    <p id="empty" class="muted center">Aún no hay búsquedas. Crea la primera arriba.</p>
   </main>
+
+  <dialog id="editDlg">
+    <form id="editForm" class="sform" novalidate>
+      <h2>Cambiar búsqueda</h2>
+      <div id="editFields" class="sform"></div>
+      <div class="row">
+        <button class="btn ghost" type="button" data-close>Cancelar</button>
+        <span class="grow"></span>
+        <button class="btn primary" type="submit">Guardar</button>
+      </div>
+    </form>
+  </dialog>
 
   <dialog id="cfg">
     <form id="cfgForm" method="dialog">
@@ -53,9 +74,27 @@
 
       <p class="muted small nota">
         Se revisan las 3 aerolíneas <b>cada 10 minutos</b>. Solo te escribo cuando
-        hay novedad: un vuelo nuevo bajo tu filtro, o uno ya avisado que
-        <b>bajó de precio</b>. Lo mismo al mismo precio no se repite.
+        hay novedad: una compra nueva bajo tu filtro, o una ya avisada que
+        <b>bajó de precio</b>. Lo mismo al mismo precio no se repite. El mensaje
+        te dice el total, los dos tramos y <b>qué equipaje trae ese precio</b>.
       </p>
+
+      <details class="adv">
+        <summary>Equipaje suelto (respaldo)</summary>
+        <p class="muted small">
+          El costo del equipaje se lee en el panel de tarifas de cada aerolínea.
+          Estos valores solo se usan si ese panel no abre; déjalos vacíos para
+          usar los de referencia. Por pasajero y por trayecto.
+        </p>
+        <div class="grid2">
+          <label>Equipaje de mano
+            <input name="bag_carryon_cop" type="text" inputmode="numeric" class="money" placeholder="45.000">
+          </label>
+          <label>Maleta en bodega
+            <input name="bag_checked_cop" type="text" inputmode="numeric" class="money" placeholder="100.000">
+          </label>
+        </div>
+      </details>
       <p id="cfgMsg" class="muted small"></p>
       <div class="row">
         <button class="btn" id="btnTest" type="button">Probar</button>
@@ -66,7 +105,6 @@
     </form>
   </dialog>
 
-  <script src="/static/airports.js"></script>
-  <script src="/static/app.js"></script>
+  <script type="module" src="/static/js/main.js"></script>
 </body>
 </html>

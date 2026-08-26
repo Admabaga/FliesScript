@@ -12,7 +12,9 @@ concurrency:
 jobs:
   scrape:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    # Cada fecha puede ser ida y vuelta (dos consultas por aerolínea) más el
+    # panel de tarifas: rinde el doble que cuando solo había ida.
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
 

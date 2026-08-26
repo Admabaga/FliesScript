@@ -28,4 +28,9 @@ GH_TOKEN = clean("GH_TOKEN")  # token clásico con permisos repo + workflow
 SETTING_DEFAULTS = {
     # Un numero por linea: "+573054305869" (o "+573054305869|apikey" para CallMeBot).
     "wa_recipients": os.getenv("WA_RECIPIENTS", ""),
+    # Respaldo por si una aerolínea no deja abrir su panel de tarifas: cuánto
+    # cobra el equipaje suelto, por pasajero y por trayecto. Vacío = usar la
+    # tabla de referencia de app/baggage.py.
+    "bag_carryon_cop": "",
+    "bag_checked_cop": "",
 }

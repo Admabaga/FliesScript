@@ -1,6 +1,6 @@
 // Destinos que sirven Wingo, JetSMART y/o Avianca desde Colombia.
 // Agrupados como se eligen mentalmente, no por país estricto.
-const AIRPORTS = {
+export const AIRPORTS = {
   Colombia: [
     ["BOG", "Bogotá"],
     ["MDE", "Medellín"],
