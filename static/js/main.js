@@ -7,6 +7,7 @@ import { AlertsDialog } from "./alerts-dialog.js";
 import { api } from "./api.js";
 import { pintarIconos } from "./icons.js";
 import { SearchForm } from "./search-form.js";
+import { SearchSheet } from "./sheet.js";
 import { store } from "./store.js";
 import { setVocab } from "./vocab.js";
 import { abiertos, renderWatch } from "./watch-card.js";
@@ -16,6 +17,8 @@ const REFRESCO_MS = 30_000;
 
 pintarIconos(); // rellena los <span data-icon> del HTML estático
 
+const hoja = new SearchSheet();
+
 const nuevaBusqueda = new SearchForm($("#watchForm"), {
   submitLabel: "Buscar y vigilar",
   onSubmit: async (valores) => {
@@ -23,6 +26,7 @@ const nuevaBusqueda = new SearchForm($("#watchForm"), {
     try {
       await api.addWatch(valores);
       nuevaBusqueda.message("Listo: ya la estoy vigilando.");
+      hoja.close(); // en móvil, la hoja se va y deja ver la búsqueda nueva
       await cargar({ forzar: true });
     } catch (err) {
       nuevaBusqueda.message(err.message);

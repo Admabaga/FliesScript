@@ -24,19 +24,37 @@
   </header>
   <div id="lastScan" class="scanbar muted">—</div>
 
-  <main>
-    <section class="card">
-      <form id="watchForm" class="sform" novalidate></form>
-    </section>
+  <!-- Dos columnas en pantalla grande: el buscador fijo a la izquierda y las
+       búsquedas a la derecha. En móvil el buscador se vuelve una hoja que sube
+       desde abajo, y se abre con el botón flotante. -->
+  <main class="app">
+    <aside class="pane" id="pane" aria-label="Nueva búsqueda">
+      <section class="card">
+        <div class="panehead">
+          <h2><span data-icon="search"></span>Buscar vuelos</h2>
+          <button class="btn mini ghost paneclose" id="paneClose" type="button" aria-label="Cerrar">
+            <span data-icon="x"></span>
+          </button>
+        </div>
+        <form id="watchForm" class="sform" novalidate></form>
+      </section>
+    </aside>
 
-    <div id="watches"></div>
-    <div id="loading" class="skeleton" hidden>
-      <div class="bar w40"></div><div class="bar tall"></div><div class="bar w70"></div><div class="bar"></div>
+    <div class="feed">
+      <div id="watches"></div>
+      <div id="loading" class="skeleton" hidden>
+        <div class="bar w40"></div><div class="bar tall"></div><div class="bar w70"></div><div class="bar"></div>
+      </div>
+      <p id="empty" class="muted center" hidden>
+        Aún no hay búsquedas. Crea la primera y te aviso cuando el precio baje.
+      </p>
     </div>
-    <p id="empty" class="muted center" hidden>
-      Aún no hay búsquedas. Crea la primera arriba y te aviso cuando el precio baje.
-    </p>
   </main>
+
+  <div class="scrim" id="scrim" hidden></div>
+  <button class="fab" id="fab" type="button" aria-expanded="false" aria-controls="pane">
+    <span data-icon="plus" data-icon-size="ic-lg"></span><span class="fablbl">Nueva búsqueda</span>
+  </button>
 
   <dialog id="editDlg">
     <form id="editForm" class="sform" novalidate>

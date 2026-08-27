@@ -104,7 +104,33 @@ header {
 }
 
 /* ---------- base ---------- */
-main { max-width: 1160px; margin: 0 auto; padding: 12px var(--pad) 48px; }
+main { max-width: 1420px; margin: 0 auto; padding: 12px var(--pad) 48px; }
+
+/* Dos columnas: el buscador vive a la izquierda y se queda quieto mientras se
+   recorren las búsquedas, que son lo que se lee. */
+.app { display: grid; grid-template-columns: minmax(320px, 27%) 1fr; gap: 18px; align-items: start; }
+.pane { position: sticky; top: 74px; max-height: calc(100vh - 96px); overflow-y: auto; }
+.pane > .card { margin-bottom: 0; }
+.pane::-webkit-scrollbar { width: 8px; }
+.pane::-webkit-scrollbar-thumb { background: rgba(244, 241, 232, 0.14); border-radius: 8px; }
+.feed { min-width: 0; }
+
+.panehead { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; }
+.panehead h2 {
+  margin: 0; font-size: 15px; font-weight: 700; letter-spacing: -0.02em;
+  display: flex; align-items: center; gap: 8px;
+}
+.panehead h2 .ic { color: var(--gold); }
+.pane .paneclose { margin-left: auto; display: none; }
+
+/* ---------- botón flotante (solo en pantalla chica) ---------- */
+.fab { display: none; }
+.scrim {
+  position: fixed; inset: 0; z-index: 30;
+  background: rgba(6, 5, 4, 0.62); backdrop-filter: blur(3px);
+  animation: aparecer 0.18s var(--ease);
+}
+@keyframes aparecer { from { opacity: 0; } to { opacity: 1; } }
 .card {
   background: linear-gradient(180deg, var(--panel), var(--ink-950));
   border: 1px solid var(--line);
@@ -490,6 +516,51 @@ label.full { display: block; margin-bottom: 6px; }
   background: rgba(212, 175, 55, 0.06); border-left: 2px solid var(--gold);
   border-radius: 0 var(--r-xs) var(--r-xs) 0; padding: 11px 13px; margin-top: 15px;
   line-height: 1.5;
+}
+
+/* ============================ tablet ============================ */
+@media (max-width: 1000px) {
+  /* Una sola columna: el buscador pasa a ser una hoja que sube desde abajo y se
+     abre con el botón flotante. Así la pantalla es de las búsquedas. */
+  .app { grid-template-columns: 1fr; gap: 0; }
+  .feed { padding-bottom: 78px; } /* aire para que el botón no tape la última */
+
+  .pane {
+    position: fixed; inset: auto 0 0 0; z-index: 40;
+    top: auto; max-height: 88vh; padding: 0 var(--pad) calc(14px + env(safe-area-inset-bottom));
+    transform: translateY(102%); visibility: hidden;
+    transition: transform 0.26s var(--ease), visibility 0.26s var(--ease);
+    overscroll-behavior: contain;
+  }
+  .pane.open { transform: none; visibility: visible; }
+  .pane > .card {
+    border-radius: var(--r) var(--r) 0 0; border-bottom: none;
+    box-shadow: 0 -20px 50px -20px rgba(0, 0, 0, 0.8);
+  }
+  /* agarradera, como en cualquier hoja de iOS/Android */
+  .pane > .card::before {
+    content: ""; display: block; width: 42px; height: 4px; border-radius: 99px;
+    background: rgba(244, 241, 232, 0.22); margin: 2px auto 12px;
+  }
+  .pane .paneclose { display: inline-flex; }
+
+  .fab {
+    display: inline-flex; align-items: center; gap: 8px;
+    position: fixed; z-index: 35;
+    right: var(--pad); bottom: calc(18px + env(safe-area-inset-bottom));
+    padding: 15px 18px; border: none; border-radius: 999px;
+    background: linear-gradient(180deg, var(--gold-soft), var(--gold));
+    color: #17140c; font: 700 14.5px/1 var(--ui); cursor: pointer;
+    box-shadow: 0 14px 34px -12px rgba(212, 175, 55, 0.6), 0 2px 8px rgba(0, 0, 0, 0.5);
+    transition: transform 0.22s var(--ease), opacity 0.22s var(--ease);
+  }
+  .fab:active { transform: scale(0.95); }
+  /* Al bajar se recoge a un círculo con el +, y al subir vuelve con su texto:
+     así nunca tapa un precio pero siempre está a un toque. */
+  .fab.compacto { padding: 15px; }
+  .fab.compacto .fablbl { display: none; }
+  .fab[hidden] { display: none; }
+  body.sheet-open { overflow: hidden; }
 }
 
 /* ============================ móvil ============================ */
