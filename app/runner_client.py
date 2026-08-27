@@ -18,12 +18,18 @@ Con eso el `cron` queda de red de seguridad, no de motor.
 
 import asyncio
 import logging
+import re
 from datetime import datetime, timedelta, timezone
 
 import httpx
 
 from . import db
 from .config import GH_TOKEN, SCRAPE_URL
+
+# https://api.github.com/repos/OWNER/REPO/actions/workflows/ARCHIVO/dispatches
+URL_RE = re.compile(
+    r"repos/(?P<owner>[^/]+)/(?P<repo>[^/]+)/actions/workflows/(?P<wf>[^/]+)/dispatches"
+)
 
 log = logging.getLogger("runner")
 
@@ -39,9 +45,58 @@ TICK_S = 240
 
 
 def _diagnostico_404() -> str:
+    """GitHub responde 404 tanto si el token no sirve como si la URL apunta a otro
+    repo, así que se manda a mirar el diagnóstico en vez de adivinar."""
     if not GH_TOKEN:
         return "falta GH_TOKEN en Render"
-    return "el token debe ser de la cuenta dueña del repo, con permisos repo + workflow"
+    return "SCRAPE_URL apunta a un workflow que no existe (revisa el nombre del archivo)"
+
+
+def _headers() -> dict:
+    h = {"Accept": "application/vnd.github+json"}
+    if GH_TOKEN:
+        h["Authorization"] = f"Bearer {GH_TOKEN}"
+    return h
+
+
+async def _reintento_resolviendo(c: httpx.AsyncClient) -> dict | None:
+    """Segundo intento cuando GitHub responde 404.
+
+    Un 404 puede ser solo que en `SCRAPE_URL` esté mal el nombre del archivo del
+    workflow, o que la rama por defecto no se llame `main`. Las dos cosas se
+    pueden averiguar preguntándole al repo, así que se pregunta y se reintenta
+    con el id real del workflow y la rama real. Si el repo no existe o el token
+    no lo ve, no hay nada que resolver y se devuelve `None`.
+    """
+    m = URL_RE.search(SCRAPE_URL)
+    if not m:
+        return None
+    owner, repo, archivo = m["owner"], m["repo"], m["wf"]
+
+    r = await c.get(f"https://api.github.com/repos/{owner}/{repo}")
+    if r.status_code != 200:
+        return None
+    rama = r.json().get("default_branch") or "main"
+
+    r = await c.get(f"https://api.github.com/repos/{owner}/{repo}/actions/workflows")
+    if r.status_code != 200:
+        return None
+    workflows = r.json().get("workflows") or []
+    elegido = next((w for w in workflows if w["path"].endswith(archivo)), None)
+    if elegido is None and len(workflows) == 1:
+        elegido = workflows[0]  # el repo tiene uno solo: es ese
+    if elegido is None:
+        return None
+
+    r = await c.post(
+        f"https://api.github.com/repos/{owner}/{repo}/actions/workflows/"
+        f"{elegido['id']}/dispatches",
+        json={"ref": rama},
+    )
+    if r.status_code < 300:
+        log.info("dispatch resuelto por id (%s, rama %s)", elegido["path"], rama)
+        return {"started": True, "detalle": "buscando… los precios llegan en ~3 min"}
+    return None
 
 
 async def trigger_scrape() -> dict:
@@ -49,23 +104,29 @@ async def trigger_scrape() -> dict:
     if not SCRAPE_URL:
         return {"started": False, "detalle": "el runner corre solo cada 10 min"}
 
-    headers = {"Accept": "application/vnd.github+json"}
-    if GH_TOKEN:
-        headers["Authorization"] = f"Bearer {GH_TOKEN}"
     try:
-        async with httpx.AsyncClient(timeout=20) as c:
-            r = await c.post(SCRAPE_URL, json={"ref": "main"}, headers=headers)
+        async with httpx.AsyncClient(timeout=25, headers=_headers()) as c:
+            r = await c.post(SCRAPE_URL, json={"ref": "main"})
+
+            if r.status_code < 300:
+                return {"started": True, "detalle": "buscando… los precios llegan en ~3 min"}
+            if r.status_code in (401, 403):
+                return {"started": False, "detalle": "el token no tiene permiso sobre el repo"}
+            if r.status_code == 404:
+                # GitHub responde 404 tanto si el token no ve el repo como si el
+                # archivo del workflow no es ese: se intenta resolver.
+                rescate = await _reintento_resolviendo(c)
+                if rescate:
+                    return rescate
+                return {"started": False, "detalle": f"GitHub respondió 404: {_diagnostico_404()}"}
+            if r.status_code == 422:
+                return {
+                    "started": False,
+                    "detalle": "el workflow no acepta ejecución manual (falta workflow_dispatch)",
+                }
+            return {"started": False, "detalle": f"GitHub respondió {r.status_code}"}
     except Exception as exc:  # noqa: BLE001
         return {"started": False, "detalle": str(exc)[:120]}
-
-    if r.status_code < 300:
-        return {"started": True, "detalle": "buscando… los precios llegan en ~3 min"}
-    if r.status_code in (401, 403):
-        return {"started": False, "detalle": "el token no tiene permiso sobre el repo"}
-    if r.status_code == 404:
-        # GitHub responde 404 (no 401) cuando la petición va sin credenciales.
-        return {"started": False, "detalle": f"GitHub respondió 404: {_diagnostico_404()}"}
-    return {"started": False, "detalle": f"GitHub respondió {r.status_code}"}
 
 
 async def rehydrate() -> None:

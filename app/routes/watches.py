@@ -54,6 +54,14 @@ async def get_watches():
 @router.post("/watches")
 async def post_watch(payload: dict = Body(...)):
     datos = clean_watch(payload)
+    ya_existia = db.find_watch(
+        datos["origin"],
+        datos["destination"],
+        datos["date"],
+        datos.get("return_date") or None,
+        datos.get("adults", 1),
+        datos.get("bag_level", baggage.ANY),
+    )
     watch_id = db.add_watch(
         datos["origin"],
         datos["destination"],
@@ -63,7 +71,11 @@ async def post_watch(payload: dict = Body(...)):
         adults=datos.get("adults", 1),
         bag_level=datos.get("bag_level", baggage.ANY),
     )
-    asyncio.create_task(runner_client.trigger_scrape())  # que el runner la mire ya
+    # Solo se pide búsqueda si la fecha es nueva. Al reponer la copia del
+    # navegador llegan varias altas de golpe, y una corrida de Actions por cada
+    # una solo sirve para que GitHub cancele las anteriores.
+    if ya_existia is None:
+        asyncio.create_task(runner_client.trigger_scrape())
     return {"id": watch_id}
 
 
