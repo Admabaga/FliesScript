@@ -72,11 +72,13 @@ espaciadas y reintentos con backoff.
 
 ## Diseño
 
-Paleta **Midnight Gala Luxe**: navy profundo (`#060f22`, `#0b1a33`, `#12264f`),
-oro (`#d4af37`) y marfil (`#f4f1e8`). Regla que sostiene todo: **el oro se
-reserva para el precio que conviene** — la mejor compra, el vuelo más barato de
-cada tramo y el botón de comprar. Lo demás es navy y marfil para que el ojo vaya
-al número.
+Paleta: **grafito cálido** (`#0f0e0d`, `#161513`, `#1c1a18`) + **oro**
+(`#d4af37`) + **marfil** (`#f4f1e8`). Empezó siendo navy, pero el azul teñía
+todo y competía con los colores del semáforo; el grafito es neutro y hace
+resaltar más el oro. Regla que sostiene todo: **el oro se reserva para el precio
+que conviene** — la mejor compra, el vuelo más barato de cada tramo y el botón de
+comprar. Todos los colores pasan AA sobre el fondo (el más bajo, el rojo, va
+6.5:1).
 
 Sobre eso, un **semáforo de precio** que responde "¿esto está barato o qué?" sin
 tener que restar de cabeza:
@@ -91,10 +93,9 @@ tener que restar de cabeza:
 Las *otras combinaciones* muestran además la diferencia exacta contra la mejor
 compra (`+$133.816 · 14%`), y cada vuelo marca **el más barato** de su tramo.
 
-Tipografía: **Geist** para la interfaz (cifras tabulares impecables, que es lo
-que importa cuando todo son precios) e **Instrument Serif** para la marca y los
-títulos de ruta — editorial y actual, sin caer en el serif clásico. El total
-grande va en Geist 700 con tracking cerrado: se lee mejor que un serif fino. Iconos de
+Tipografía: **Geist** en todo (cifras tabulares impecables, que es lo que importa
+cuando todo son precios). La personalidad la da el tracking cerrado de la marca,
+los títulos de ruta y los totales — no un serif decorativo. Iconos de
 **Lucide** empotrados en `static/js/icons.js`: se copian los ~20 trazos que se
 usan en vez de cargar la librería desde un CDN, así la app no depende de que
 unpkg esté vivo ni suma 70 KB en una conexión móvil.
