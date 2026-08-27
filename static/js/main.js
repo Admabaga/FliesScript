@@ -49,19 +49,44 @@ new AlertsDialog({ onSaved: () => cargar({ forzar: true }) });
 
 let ultimoJson = "";
 let formularioListo = false;
+let reponiendo = null;
 
 /**
  * Si el servidor perdió los datos (redeploy sin disco), los repone desde el
  * navegador antes de pintar.
+ *
+ * Con candado: el refresco cada 30s y el botón Actualizar pueden entrar aquí a
+ * la vez, y sin esto cada uno reponía la misma lista otra vez (varias pestañas
+ * abiertas lo multiplicaban). El servidor también lo evita, pero el candado
+ * ahorra el viaje.
  */
-async function reponerDesdeLocal(delServidor) {
+function reponerDesdeLocal(delServidor) {
+  if (reponiendo) return reponiendo;
   const copia = store.read();
-  if (!copia.length || delServidor.length) return false;
-  for (const w of copia) await api.addWatch(w);
-  return true;
+  if (!copia.length || delServidor.length) return Promise.resolve(false);
+  reponiendo = (async () => {
+    try {
+      for (const w of copia) await api.addWatch(w);
+      return true;
+    } finally {
+      reponiendo = null;
+    }
+  })();
+  return reponiendo;
 }
 
-async function cargar({ forzar = false } = {}) {
+let cargando = null;
+
+/** Una sola carga a la vez: el intervalo y los botones comparten esta. */
+function cargar(opciones = {}) {
+  if (cargando && !opciones.forzar) return cargando;
+  cargando = _cargar(opciones).finally(() => {
+    cargando = null;
+  });
+  return cargando;
+}
+
+async function _cargar({ forzar = false } = {}) {
   const data = await api.watches();
   setVocab(data);
   $("#loading").hidden = true;

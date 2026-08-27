@@ -74,6 +74,21 @@ async def patch_watch(watch_id: int, payload: dict = Body(...)):
         raise HTTPException(404, "esa búsqueda ya no existe")
 
     datos = clean_watch(payload, partial=True, current=actual)
+
+    # Editar una búsqueda hasta dejarla idéntica a otra chocaría con el índice
+    # único; se avisa en vez de reventar.
+    futuro = {**actual, **datos}
+    gemela = db.find_watch(
+        futuro["origin"],
+        futuro["destination"],
+        futuro["date"],
+        futuro.get("return_date"),
+        futuro.get("adults", 1),
+        futuro.get("bag_level", baggage.ANY),
+    )
+    if gemela is not None and gemela != watch_id:
+        raise HTTPException(409, "ya tienes otra búsqueda igual a esa")
+
     if "active" in payload:
         datos["active"] = 1 if payload["active"] else 0
     db.update_watch(watch_id, **datos)

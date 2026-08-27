@@ -94,12 +94,43 @@ MIGRATIONS = {
 }
 
 
+# Una búsqueda repetida no significa nada: la base la rechaza. Con COALESCE
+# porque en SQLite dos NULL no chocan en un índice único, y "solo ida" guarda
+# NULL en return_date.
+INDICE_UNICO = """
+CREATE UNIQUE INDEX IF NOT EXISTS watches_unicas ON watches (
+    origin, destination, date, COALESCE(return_date, ''), adults, bag_level
+)
+"""
+
+
+def limpiar_duplicadas(c) -> int:
+    """Borra las búsquedas repetidas y deja la primera de cada una."""
+    filas = c.execute(
+        "SELECT MIN(id) AS conservar, GROUP_CONCAT(id) AS todas FROM watches"
+        " GROUP BY origin, destination, date, COALESCE(return_date, ''), adults, bag_level"
+        " HAVING COUNT(*) > 1"
+    ).fetchall()
+    borradas = 0
+    for fila in filas:
+        ids = [int(i) for i in fila["todas"].split(",") if int(i) != fila["conservar"]]
+        for wid in ids:
+            c.execute("DELETE FROM flights WHERE watch_id = ?", (wid,))
+            c.execute("DELETE FROM scan_status WHERE watch_id = ?", (wid,))
+            c.execute("DELETE FROM watches WHERE id = ?", (wid,))
+            borradas += 1
+    return borradas
+
+
 def migrate(c):
     for table, columns in MIGRATIONS.items():
         have = {r["name"] for r in c.execute(f"PRAGMA table_info({table})").fetchall()}
         for name, decl in columns.items():
             if name not in have:
                 c.execute(f"ALTER TABLE {table} ADD COLUMN {name} {decl}")
+    # El índice no se puede crear si ya hay repetidas: primero se limpian.
+    limpiar_duplicadas(c)
+    c.execute(INDICE_UNICO)
 
 
 def init():
@@ -141,6 +172,27 @@ def list_watches(only_active: bool = False) -> list[dict]:
         return [dict(r) for r in c.execute(sql).fetchall()]
 
 
+# Lo que hace que dos búsquedas sean "la misma": la ruta, las fechas, quiénes
+# viajan y el equipaje. El precio del filtro no cuenta — es lo único que se
+# cambia sobre una búsqueda que ya existe.
+IGUALDAD = """
+    origin = ? AND destination = ? AND date = ?
+    AND COALESCE(return_date, '') = COALESCE(?, '')
+    AND adults = ? AND bag_level = ?
+"""
+
+
+def find_watch(origin, destination, date, return_date=None, adults=1, bag_level="any") -> int | None:
+    """El id de una búsqueda igual, si ya existe."""
+    with conn() as c:
+        fila = c.execute(
+            f"SELECT id FROM watches WHERE {IGUALDAD} ORDER BY id LIMIT 1",
+            (origin.upper(), destination.upper(), date, return_date or None,
+             int(adults or 1), bag_level or "any"),
+        ).fetchone()
+    return fila["id"] if fila else None
+
+
 def add_watch(
     origin,
     destination,
@@ -150,6 +202,16 @@ def add_watch(
     adults=1,
     bag_level="any",
 ) -> int:
+    """Crea la búsqueda, o devuelve la que ya existía si es idéntica.
+
+    Es idempotente a propósito: la app repone las búsquedas desde el
+    `localStorage` cuando la base queda vacía tras un redeploy, y con varias
+    pestañas abiertas eso llegaba a crear la misma búsqueda muchas veces.
+    """
+    existente = find_watch(origin, destination, date, return_date, adults, bag_level)
+    if existente is not None:
+        return existente
+
     with conn() as c:
         cur = c.execute(
             "INSERT INTO watches(origin, destination, date, return_date, adults,"

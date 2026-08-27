@@ -317,9 +317,15 @@ Notas:
 - El plan free duerme a los 15 min: mantenlo despierto con UptimeRobot apuntando
   a `https://TU-APP.onrender.com/health` cada 10 min. `/health` acepta **GET y
   HEAD** a propósito: los monitores usan HEAD y FastAPI no lo añade solo.
-- Sin disco no hay BD persistente. Si Render reinicia, la app repone tus fechas
-  desde el `localStorage` del navegador la próxima vez que la abras (y toca
-  volver a escanear el QR de WhatsApp).
+- Sin disco no hay BD persistente. Si Render reinicia, la app repone tus
+  búsquedas desde el `localStorage` del navegador la próxima vez que la abras (y
+  toca volver a escanear el QR de WhatsApp).
+- Esa reposición **no puede duplicar nada**: dar de alta una búsqueda idéntica
+  devuelve la que ya existe, y la base tiene un índice único sobre
+  ruta + fechas + adultos + equipaje (el precio del filtro no cuenta, es lo que
+  se edita). Hizo falta porque con varias pestañas abiertas cada una reponía su
+  copia al ver la base vacía, y la pantalla acababa con la misma tarjeta muchas
+  veces. Si una base ya viene con repetidas, al arrancar se limpian.
 
 ## Frecuencia: por qué el `cron` no basta
 
