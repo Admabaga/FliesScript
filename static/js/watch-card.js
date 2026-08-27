@@ -61,12 +61,29 @@ const claveVuelo = (w, f) => `${w.id}|${f.airline}|${f.direction}|${f.depart_tim
 
 // --------------------------------------------------------------- equipaje
 
+const KG = /(\d{1,3})\s*kg/i;
+
+/**
+ * La etiqueta corta de la fila: nivel + el peso que publica **esa** aerolínea,
+ * que es lo que distingue la maleta de mano pequeña de la normal. Las medidas
+ * completas van en el desglose, para informar sin atosigar.
+ */
+function etiquetaCorta(o) {
+  if (o.level === "personal") return BAG.short(o.level);
+  const kg = (o.specs || "").match(KG);
+  const base = o.level === "carry_on" ? "mano" : "bodega";
+  return kg ? `${base} ${kg[1]} kg` : BAG.short(o.level);
+}
+
 /** El equipaje, dicho con palabras: es el dato, no una etiqueta decorativa. */
 function textoEquipaje(o, conNombre = true) {
   const nombre = conNombre && o.fare_name ? ` · ${esc(o.fare_name)}` : "";
+  const medidas = o.specs ? ` — ${o.specs}` : "";
   return (
-    `<span class="lvl ${o.level}" title="${esc(BAG.detail(o.level))} · ${fuente(o.source).txt}">` +
-    `${icon(o.level, "ic-sm")}${esc(BAG.short(o.level))}</span>` +
+    `<span class="lvl ${o.level}" title="${esc(BAG.detail(o.level))}${esc(medidas)} · ${
+      fuente(o.source).txt
+    }">` +
+    `${icon(o.level, "ic-sm")}${esc(etiquetaCorta(o))}</span>` +
     `<span class="muted">${nombre}</span>`
   );
 }
@@ -89,11 +106,14 @@ function tablaTarifas(w, f) {
         .map((t) => {
           const extra = t.price - base;
           const fu = fuente(t.source);
+          const origen =
+            t.specs_src === "referencia" ? " (medida publicada por la aerolínea)" : "";
           return `<tr class="${t.level === elegido ? "pick" : ""}"
-            title="${esc(BAG.detail(t.level))} · ${fu.txt}">
-            <td class="lv">${esc(BAG.label(t.level) || t.level)}${
-              t.name ? ` <span class="nmi muted">${esc(t.name)}</span>` : ""
-            }</td>
+            title="${esc(BAG.detail(t.level))}${esc(origen)} · ${fu.txt}">
+            <td class="lv">${esc(BAG.label(t.level) || t.level)}
+              ${t.name ? `<span class="nmi muted">${esc(t.name)}</span>` : ""}
+              ${t.specs ? `<span class="spec">${icon(t.level, "ic-sm")}${esc(t.specs)}</span>` : ""}
+            </td>
             <td class="p">${fu.mark}${money(t.price)}</td>
             <td class="dx muted">${extra ? "+" + money(extra) : "incluido"}</td>
           </tr>`;

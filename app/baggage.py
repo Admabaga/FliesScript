@@ -24,6 +24,8 @@ bodega, así que pedir mano cuesta lo mismo que pedir bodega. No se rellena el
 hueco con una estimación: sería ofrecer un precio que no existe.
 """
 
+import re
+
 # Orden creciente: cada nivel incluye lo del anterior.
 LEVELS = ["personal", "carry_on", "checked"]
 RANK = {level: i for i, level in enumerate(LEVELS)}
@@ -39,10 +41,58 @@ LABEL = {
 SHORT = {"personal": "solo bolso", "carry_on": "mano 10 kg", "checked": "bodega 23 kg"}
 ICON = {"personal": "🎒", "carry_on": "🧳", "checked": "🛄"}
 DETAIL = {
-    "personal": "Solo un bolso o morral pequeño bajo el asiento. No entra maleta de cabina.",
-    "carry_on": "Bolso pequeño + maleta de cabina (10-12 kg) en el compartimiento.",
-    "checked": "Bolso pequeño + maleta de cabina + maleta documentada en bodega (23 kg).",
+    "personal": "Solo un bolso o morral pequeño bajo el asiento (unos 40×35×25 cm). "
+    "No entra maleta de cabina.",
+    "carry_on": "Bolso pequeño + maleta de cabina de 10-12 kg (unos 55×40×25 cm) en el "
+    "compartimiento de arriba.",
+    "checked": "Bolso pequeño + maleta de cabina + maleta documentada en bodega, 23 kg.",
 }
+
+# Medidas y pesos publicados por cada aerolínea, por si su panel de tarifas no los
+# dice. El panel manda: esto es solo el respaldo, y sirve para lo que de verdad
+# importa saber — si la maleta de mano que compras es la pequeña o la normal.
+SPECS = {
+    "Wingo": {
+        "personal": "40×35×25 cm",
+        "carry_on": "12 kg · 55×45×25 cm",
+        "checked": "23 kg · 158 cm lineales",
+    },
+    "JetSMART": {
+        "personal": "45×35×25 cm",
+        "carry_on": "10 kg · 55×35×25 cm",
+        "checked": "23 kg · 158 cm lineales",
+    },
+    "Avianca": {
+        "personal": "45×35×25 cm",
+        "carry_on": "10 kg · 55×35×25 cm",
+        "checked": "23 kg · 158 cm lineales",
+    },
+}
+
+
+_KG = re.compile(r"\d{1,3}\s*kg", re.I)
+_CM = re.compile(r"\d{2,3}\s*×\s*\d{2,3}\s*×\s*\d{2,3}\s*cm|\d{2,3}\s*cm\s*lineales", re.I)
+
+
+def specs_for(airline: str, level: str, leidas: dict | None = None) -> tuple[str | None, str]:
+    """Las medidas de ese equipaje y de dónde salieron.
+
+    Manda lo que se leyó en el panel, pero muchas veces dice solo el peso
+    ("1 equipaje de bodega (23 kg)"): lo que falte se completa con la tabla de
+    referencia, para no dejar a medias el dato que importa.
+
+    Devuelve `(texto, "scraped"|"referencia")`.
+    """
+    leida = (leidas or {}).get(level)
+    tabla = (SPECS.get(airline) or {}).get(level)
+    if not leida:
+        return tabla, "referencia"
+
+    peso = _KG.search(leida) or (_KG.search(tabla) if tabla else None)
+    medida = _CM.search(leida) or (_CM.search(tabla) if tabla else None)
+    partes = [m.group(0).replace("Kg", "kg") for m in (peso, medida) if m]
+    return (" · ".join(partes) or leida), "scraped"
+
 
 # Lo que la UI ofrece como filtro, en orden.
 FILTERS = [
@@ -92,39 +142,34 @@ def build_fares(
     # El panel se abrió sobre un vuelo concreto: para ese, los precios son textuales.
     leido = deltas and ladder.get("base") == price
 
-    fares = [
-        {
-            "name": names.get("personal"),
-            "level": "personal",
-            "price": price,
-            "source": "scraped",  # este sí sale de la lista de la aerolínea
+    medidas = ladder.get("specs") or {}
+
+    def fila(level: str, valor: int, source: str) -> dict:
+        specs, specs_src = specs_for(airline, level, medidas)
+        return {
+            "name": names.get(level),
+            "level": level,
+            "price": valor,
+            "source": source,
+            "specs": specs,
+            "specs_src": specs_src,
         }
-    ]
+
+    # El precio de la lista es el escalón más bajo: sale de la aerolínea tal cual.
+    fares = [fila("personal", price, "scraped")]
 
     if deltas:
         for level in ("carry_on", "checked"):
             if level in deltas:
                 fares.append(
-                    {
-                        "name": names.get(level),
-                        "level": level,
-                        "price": price + int(deltas[level]),
-                        "source": "scraped" if leido else "derivado",
-                    }
+                    fila(level, price + int(deltas[level]), "scraped" if leido else "derivado")
                 )
         return fares
 
     extra = addons(airline, overrides)
     for level in ("carry_on", "checked"):
         if extra.get(level):
-            fares.append(
-                {
-                    "name": None,
-                    "level": level,
-                    "price": price + int(extra[level]),
-                    "source": "estimado",
-                }
-            )
+            fares.append(fila(level, price + int(extra[level]), "estimado"))
     return fares
 
 
@@ -149,6 +194,8 @@ def option_for(fares: list[dict], required: str) -> dict | None:
         "level": best["level"],
         "fare_name": best.get("name"),
         "source": best.get("source") or "estimado",
+        "specs": best.get("specs"),
+        "specs_src": best.get("specs_src") or "referencia",
         # Cuánto de ese precio es el equipaje, contra la tarifa más barata del vuelo.
         "extra": int(best["price"]) - int(rows[0]["price"]),
         "label": LABEL.get(best["level"], ""),

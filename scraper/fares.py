@@ -44,6 +44,12 @@ BAG_RE = [
     ),
 ]
 
+# "hasta 12 Kg", "23 kg", "40x35x25 cm", "158cm lineales": lo que la aerolínea
+# publica al lado de cada tipo de equipaje.
+PESO = re.compile(r"(\d{1,3})\s*kg\b", re.I)
+MEDIDAS = re.compile(r"(\d{2,3})\s*[x×]\s*(\d{2,3})\s*[x×]\s*(\d{2,3})\s*(?:cm)?", re.I)
+LINEALES = re.compile(r"(\d{2,3})\s*cm\s*lineales", re.I)
+
 # "$ 114,102" · "COP 131.900" · "+ $93.177" · "+ 0" (el pack sin sobreprecio)
 MONEY = re.compile(
     r"(?P<plus>\+)?\s*(?:\$|COP)\s*(?P<num>\d[\d.,]*)"
@@ -78,6 +84,55 @@ def _level_of(text: str) -> str | None:
     return best
 
 
+def _medidas_cerca(texto: str) -> str | None:
+    """'hasta 12 Kg y 55x45x25cm' -> '12 kg · 55×45×25 cm'.
+
+    Wingo publica peso y medidas junto a cada tipo de equipaje; se leen de ahí
+    para poder decir si la maleta de mano es la pequeña o la normal.
+    """
+    partes = []
+    peso = PESO.search(texto)
+    if peso:
+        partes.append(f"{int(peso.group(1))} kg")
+    med = MEDIDAS.search(texto)
+    if med:
+        partes.append("×".join(med.groups()) + " cm")
+    else:
+        lin = LINEALES.search(texto)
+        if lin:
+            partes.append(f"{lin.group(1)} cm lineales")
+    return " · ".join(partes) or None
+
+
+def _specs_del_bloque(texto: str) -> dict:
+    """Las medidas que el bloque publica, por nivel de equipaje.
+
+    Se lee solo lo que sigue a cada mención y **hasta la siguiente mención de otro
+    equipaje**: si no, el "(10 kg)" del equipaje de mano se le pegaría al artículo
+    personal que va justo encima.
+    """
+    specs = {}
+    for level, pattern in BAG_RE:
+        m = pattern.search(texto)
+        if not m:
+            continue
+        ventana = texto[m.end() : m.end() + 130]
+        # se corta donde empieza a hablar de otro tipo de equipaje
+        # Solo cortan las menciones de OTRO equipaje: "1 Morral pequeño o cartera"
+        # nombra dos veces lo mismo y se cortaría antes de decir la medida.
+        cortes = [
+            otro.search(ventana).start()
+            for nivel_otro, otro in BAG_RE
+            if nivel_otro != level and otro.search(ventana) is not None
+        ]
+        if cortes:
+            ventana = ventana[: min(cortes)]
+        medida = _medidas_cerca(ventana)
+        if medida:
+            specs[level] = medida
+    return specs
+
+
 def _name_in(chunk: str, last: bool = False) -> str | None:
     """El nombre comercial de la tarifa, si aparece: 'Go Standard', 'Classic', 'M'…
 
@@ -94,7 +149,8 @@ def _name_in(chunk: str, last: bool = False) -> str | None:
 def parse_panel(text: str, side: str = "after") -> dict:
     """De un panel de tarifas a los saltos de precio por nivel de equipaje.
 
-    Devuelve `{"base": int|None, "deltas": {nivel: int}, "names": {nivel: str}}`.
+    Devuelve `{"base", "deltas", "names", "specs"}`: el salto de precio por nivel
+    y, cuando la aerolínea las publica ahí mismo, las medidas del equipaje.
     `base` solo viene cuando el panel cotiza precios absolutos: sirve para saber
     a qué vuelo pertenece el panel. `deltas` es lo que se le suma al precio de
     la lista para tener equipaje.
@@ -111,7 +167,7 @@ def parse_panel(text: str, side: str = "after") -> dict:
             {"start": m.start(), "end": m.end(), "value": value, "plus": bool(m.group("plus"))}
         )
 
-    tiers = []
+    tiers, specs_panel = [], {}
     for i, spot in enumerate(spots):
         if side == "before":
             start = spots[i - 1]["end"] if i else 0
@@ -127,10 +183,16 @@ def parse_panel(text: str, side: str = "after") -> dict:
         before = text[max(0, spot["start"] - 240) : spot["start"]]
         name = _name_in(block) if side == "before" else None
         name = name or _name_in(before, last=True)
-        tiers.append({"level": level, "price": spot["value"], "plus": spot["plus"], "name": name})
+        # Un bloque nombra varios equipajes ("mano 10 kg" y "bodega 23 kg"): se
+        # guardan todos, porque el nivel que define la tarifa es solo el más alto.
+        for lv, medida in _specs_del_bloque(block).items():
+            specs_panel.setdefault(lv, medida)
+        tiers.append(
+            {"level": level, "price": spot["value"], "plus": spot["plus"], "name": name}
+        )
 
     if not tiers:
-        return {"base": None, "deltas": {}, "names": {}}
+        return {"base": None, "deltas": {}, "names": {}, "specs": {}}
 
     # Por nivel se queda la opción más barata; los extras (silla, prioridad) suben
     # el precio sin cambiar el equipaje y no interesan.
@@ -165,4 +227,5 @@ def parse_panel(text: str, side: str = "after") -> dict:
         "base": base,
         "deltas": deltas,
         "names": {lv: t["name"] for lv, t in best.items() if t["name"]},
+        "specs": specs_panel,
     }

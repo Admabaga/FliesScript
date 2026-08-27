@@ -41,6 +41,8 @@ CREATE TABLE IF NOT EXISTS fares (
     level     TEXT NOT NULL,
     price     INTEGER NOT NULL,
     source    TEXT NOT NULL DEFAULT 'estimado',
+    specs     TEXT,
+    specs_src TEXT,
     FOREIGN KEY (flight_id) REFERENCES flights(id) ON DELETE CASCADE
 );
 
@@ -88,6 +90,7 @@ MIGRATIONS = {
         "bag_level": "TEXT NOT NULL DEFAULT 'any'",
     },
     "flights": {"direction": "TEXT NOT NULL DEFAULT 'out'"},
+    "fares": {"specs": "TEXT", "specs_src": "TEXT"},
 }
 
 
@@ -213,10 +216,11 @@ def replace_flights(watch_id: int, airline: str, flights: list[dict]):
                 ),
             )
             c.executemany(
-                "INSERT INTO fares(flight_id, name, level, price, source) VALUES(?,?,?,?,?)",
+                "INSERT INTO fares(flight_id, name, level, price, source, specs, specs_src)"
+                " VALUES(?,?,?,?,?,?,?)",
                 [
                     (cur.lastrowid, t.get("name"), t["level"], int(t["price"]),
-                     t.get("source") or "estimado")
+                     t.get("source") or "estimado", t.get("specs"), t.get("specs_src"))
                     for t in (f.get("fares") or [])
                 ],
             )
@@ -251,7 +255,14 @@ def get_flights(watch_id: int) -> list[dict]:
     by_flight = {}
     for f in fares:
         by_flight.setdefault(f["flight_id"], []).append(
-            {"name": f["name"], "level": f["level"], "price": f["price"], "source": f["source"]}
+            {
+                "name": f["name"],
+                "level": f["level"],
+                "price": f["price"],
+                "source": f["source"],
+                "specs": f["specs"],
+                "specs_src": f["specs_src"],
+            }
         )
     for flight in flights:
         flight["fares"] = by_flight.get(flight["id"], [])
