@@ -5,6 +5,7 @@
 
 import { AlertsDialog } from "./alerts-dialog.js";
 import { api } from "./api.js";
+import { pintarIconos } from "./icons.js";
 import { SearchForm } from "./search-form.js";
 import { store } from "./store.js";
 import { setVocab } from "./vocab.js";
@@ -12,6 +13,8 @@ import { abiertos, renderWatch } from "./watch-card.js";
 
 const $ = (s) => document.querySelector(s);
 const REFRESCO_MS = 30_000;
+
+pintarIconos(); // rellena los <span data-icon> del HTML estático
 
 const nuevaBusqueda = new SearchForm($("#watchForm"), {
   submitLabel: "Buscar y vigilar",
@@ -61,6 +64,7 @@ async function reponerDesdeLocal(delServidor) {
 async function cargar({ forzar = false } = {}) {
   const data = await api.watches();
   setVocab(data);
+  $("#loading").hidden = true;
 
   // El formulario se pinta una sola vez: necesita el vocabulario del backend, y
   // repintarlo borraría lo que se esté escribiendo.
@@ -77,7 +81,7 @@ async function cargar({ forzar = false } = {}) {
   if (forzar || json !== ultimoJson) {
     ultimoJson = json;
     $("#watches").innerHTML = data.watches.map(renderWatch).join("");
-    $("#empty").style.display = data.watches.length ? "none" : "block";
+    $("#empty").hidden = data.watches.length > 0;
   }
   $("#lastScan").textContent = textoRevision(data);
 }
@@ -152,5 +156,9 @@ $("#btnScan").addEventListener("click", async () => {
   $("#lastScan").textContent = r.detalle || (r.started ? "buscando vuelos…" : "no se pudo pedir");
 });
 
-cargar();
-setInterval(() => cargar(), REFRESCO_MS);
+$("#loading").hidden = false;
+cargar().catch(() => {
+  $("#loading").hidden = true;
+  $("#lastScan").textContent = "no se pudo conectar con el servidor";
+});
+setInterval(() => cargar().catch(() => {}), REFRESCO_MS);

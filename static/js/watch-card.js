@@ -10,11 +10,40 @@
 
 import { cityName } from "./cities.js";
 import { esc, fecha, money, plural } from "./format.js";
-import { IC } from "./icons.js";
+import { IC, icon } from "./icons.js";
 import { ANY, BAG, RANK, fuente } from "./vocab.js";
 
 const AEROLINEAS = ["Wingo", "JetSMART", "Avianca"];
 const MAX_VUELOS_POR_TRAMO = 6;
+
+/**
+ * Semáforo de precio: cuánto peor es una opción que la más barata.
+ *
+ * Es la respuesta a "¿esto está barato o qué?" sin tener que restar de cabeza:
+ * oro lo más barato, verde lo que está ahí mismo, ámbar lo que ya cuesta, y
+ * rojo apagado lo que se fue de precio.
+ */
+function tier(valor, mejor) {
+  if (!mejor || !valor) return "t-far";
+  const exceso = (valor - mejor) / mejor;
+  if (exceso <= 0.005) return "t-best";
+  if (exceso <= 0.08) return "t-close";
+  if (exceso <= 0.25) return "t-mid";
+  return "t-far";
+}
+
+const porcentaje = (valor, mejor) => Math.round(((valor - mejor) / mejor) * 100);
+
+/** El precio más bajo de cada tramo, mirando las tres aerolíneas juntas. */
+function minimoPorTramo(w) {
+  const min = {};
+  for (const f of w.flights) {
+    if (!f.option) continue;
+    const actual = min[f.direction];
+    if (actual === undefined || f.option.price < actual) min[f.direction] = f.option.price;
+  }
+  return min;
+}
 
 /**
  * Qué desgloses de tarifas están abiertos. Vive aquí porque es estado de la
@@ -37,7 +66,8 @@ function textoEquipaje(o, conNombre = true) {
   const nombre = conNombre && o.fare_name ? ` · ${esc(o.fare_name)}` : "";
   return (
     `<span class="lvl ${o.level}" title="${esc(BAG.detail(o.level))} · ${fuente(o.source).txt}">` +
-    `${esc(BAG.short(o.level))}</span><span class="muted">${nombre}</span>`
+    `${icon(o.level, "ic-sm")}${esc(BAG.short(o.level))}</span>` +
+    `<span class="muted">${nombre}</span>`
   );
 }
 
@@ -46,8 +76,10 @@ function tablaTarifas(w, f) {
   const base = filas[0]?.price ?? 0;
   const elegido = f.option?.level;
   // Avianca, por ejemplo, no vende "solo equipaje de mano": su tarifa con mano
-  // ya trae bodega. Se dice, para que el precio más alto se entienda.
-  const obligado = RANK[elegido] > (RANK[w.bag_level] ?? -1);
+  // ya trae bodega. Se dice, para que el precio más alto se entienda. Solo
+  // aplica si se pidió un equipaje concreto: con "el más barato" no hay salto.
+  const pedido = RANK[w.bag_level];
+  const obligado = pedido !== undefined && RANK[elegido] > pedido;
 
   return `<div class="fbox">
     <table class="ftable">
@@ -79,9 +111,11 @@ function tablaTarifas(w, f) {
 
 // --------------------------------------------------------------- vuelos
 
-function filaVuelo(w, f) {
+function filaVuelo(w, f, minTramo) {
   const o = f.option;
   if (!o) return "";
+  const nivel = tier(o.price, minTramo);
+  const esElMasBarato = nivel === "t-best";
   const clave = claveVuelo(w, f);
   const horas = `${f.depart_time || "--:--"}${f.arrive_time ? " → " + f.arrive_time : ""}`;
   const meta = [f.duration, f.flight_no].filter(Boolean).join(" · ");
@@ -95,16 +129,18 @@ function filaVuelo(w, f) {
         (l.depart_time || "") === (f.depart_time || "")
     );
 
-  return `<details class="fl${enLaMejor ? " inbest" : ""}"${
+  return `<details class="fl ${nivel}${enLaMejor ? " inbest" : ""}"${
     abiertos.has(clave) ? " open" : ""
   } data-key="${esc(clave)}">
     <summary>
       <span class="fmain">
         <span class="time">${esc(horas)}</span>
+        ${esElMasBarato ? `<span class="cheapest">${IC.best} el más barato</span>` : ""}
         <span class="price">${fuente(o.source).mark}${money(o.price)}<i> p/p</i></span>
       </span>
       <span class="fsub">
-        ${textoEquipaje(o)}${meta ? `<span class="muted"> · ${esc(meta)}</span>` : ""}
+        ${textoEquipaje(o)}${meta ? `<span class="muted">· ${esc(meta)}</span>` : ""}
+        <span class="more">tarifas ${icon("chevron", "ic-sm")}</span>
       </span>
     </summary>
     ${tablaTarifas(w, f)}
@@ -124,7 +160,7 @@ function mensajeTramo(st, dir) {
   return st.message || st.status;
 }
 
-function bloqueAerolinea(w, airline) {
+function bloqueAerolinea(w, airline, minTramo) {
   const st = w.status.find((s) => s.airline === airline);
   const suyos = w.flights.filter((f) => f.airline === airline);
   const tramos = w.return_date ? ["out", "ret"] : ["out"];
@@ -133,9 +169,11 @@ function bloqueAerolinea(w, airline) {
     .map((dir) => {
       const lista = suyos.filter((f) => f.direction === dir).slice(0, MAX_VUELOS_POR_TRAMO);
       const titulo =
-        dir === "out" ? `Ida · ${fecha(w.date)}` : `Vuelta · ${fecha(w.return_date)}`;
+        dir === "out"
+          ? `${icon("takeoff", "ic-sm")} Ida · ${fecha(w.date)}`
+          : `${icon("landing", "ic-sm")} Vuelta · ${fecha(w.return_date)}`;
       const filas = lista.length
-        ? lista.map((f) => filaVuelo(w, f)).join("")
+        ? lista.map((f) => filaVuelo(w, f, minTramo[dir])).join("")
         : `<div class="muted small">${esc(mensajeTramo(st, dir))}</div>`;
       return `<div class="dir"><h4>${titulo}</h4>${filas}</div>`;
     })
@@ -146,12 +184,12 @@ function bloqueAerolinea(w, airline) {
     : "";
   const aviso =
     st?.status === "ok" && /estimado/.test(st.message || "")
-      ? `<div class="warn-txt small">${IC.warn} No abrió el panel de tarifas: el costo del
-         equipaje es estimado.</div>`
+      ? `<div class="warn-txt small">${icon("warn", "ic-sm")} No abrió el panel de tarifas: el
+         costo del equipaje es estimado.</div>`
       : "";
 
   return `<div class="al" data-a="${airline}">
-    <h3><span>${airline}</span>${st?.status === "error" ? " ⚠️" : ""}</h3>
+    <h3><span>${airline}</span>${st?.status === "error" ? icon("warn", "ic-sm") : ""}</h3>
     ${cuerpo}${aviso}${enlace}
   </div>`;
 }
@@ -162,7 +200,7 @@ function lineaTramo(etiqueta, leg, dia, conAerolinea) {
   const o = leg.option;
   const horas = `${leg.depart_time || "--:--"}${leg.arrive_time ? " → " + leg.arrive_time : ""}`;
   return `<div class="leg">
-    <span class="tag">${etiqueta}</span>
+    <span class="tag">${icon(etiqueta === "Ida" ? "takeoff" : "landing", "ic-sm")}${etiqueta}</span>
     <span class="ltime">${esc(horas)}</span>
     <span class="lday muted">${fecha(dia)}${conAerolinea ? ` · ${esc(leg.airline)}` : ""}</span>
     <span class="lbag">${textoEquipaje(o)}</span>
@@ -193,8 +231,10 @@ function enlacesCompra(c, { compacto = false } = {}) {
         : compacto
           ? "Comprar"
           : "Ir a comprar";
-      return `<a class="btn mini" href="${esc(l.url)}" target="_blank" rel="noopener"
-        >${texto} ${IC.ext}</a>`;
+      // El botón de la mejor compra va en oro: es la acción que importa.
+      const clase = compacto ? "btn mini" : "btn primary";
+      return `<a class="${clase}" href="${esc(l.url)}" target="_blank" rel="noopener"
+        >${texto} ${icon("ext", "ic-sm")}</a>`;
     })
     .join("");
 }
@@ -213,7 +253,9 @@ function panelMejorCompra(w) {
 
   return `<div class="best ${c.hit ? "hit" : ""}">
     <div class="bhead">
-      <span class="btitle">Mejor compra${c.hit ? " · bajo tu filtro" : ""}</span>
+      <span class="btitle">${c.hit ? IC.check : IC.best} Mejor compra${
+        c.hit ? " · bajo tu filtro" : ""
+      }</span>
       <span class="grow"></span>
       <span class="btotal">${fuente(c.source).mark}${money(c.total)}</span>
     </div>
@@ -258,21 +300,24 @@ function panelMejorCompra(w) {
 function bloqueAlternativas(w) {
   const otras = w.alternatives || [];
   if (!otras.length) return "";
-  const extra = w.best ? " " : "";
+  const mejor = w.best ? w.best.total : null;
   return `<div class="alts">
-    <div class="atitle">Otras combinaciones${extra}</div>
+    <div class="atitle">Otras combinaciones</div>
     ${otras
       .map((c) => {
-        const dif = w.best ? c.total - w.best.total : 0;
-        return `<div class="alt">
-        <span class="aname">${tituloCombo(c)}</span>
+        const dif = mejor ? c.total - mejor : 0;
+        const pct = mejor ? porcentaje(c.total, mejor) : 0;
+        const nivel = tier(c.total, mejor);
+        return `<div class="alt ${nivel}">
+        <span class="aname">${icon(c.mixed ? "wallet" : "any", "ic-sm")}${tituloCombo(c)}</span>
         <span class="atimes muted">${esc(c.out.depart_time || "--:--")}${
           c.ret ? " · vuelta " + esc(c.ret.depart_time || "--:--") : ""
         }</span>
         <span class="grow"></span>
-        ${/* El verde se reserva para la mejor compra: aquí solo la diferencia. */ ""}
         <span class="atotal">${fuente(c.source).mark}${money(c.total)}</span>
-        <span class="adif muted">${dif > 0 ? `+${money(dif)}` : ""}</span>
+        <span class="adif" title="${dif > 0 ? "más caro que la mejor compra" : "mismo precio"}">${
+          dif > 0 ? `+${money(dif)} · ${pct}%` : "igual"
+        }</span>
         <span class="alinks">${enlacesCompra(c, { compacto: true })}</span>
       </div>`;
       })
@@ -283,6 +328,7 @@ function bloqueAlternativas(w) {
 // --------------------------------------------------------------- tarjeta
 
 export function renderWatch(w) {
+  const minTramo = minimoPorTramo(w);
   const fechas = w.return_date
     ? `${fecha(w.date)} → ${fecha(w.return_date)}`
     : `${fecha(w.date)} · solo ida`;
@@ -296,21 +342,22 @@ export function renderWatch(w) {
         <span class="codes muted">${w.origin}-${w.destination}</span>
         <span class="grow"></span>
         <div class="acts">
-          <button class="btn mini ghost" data-act="edit">Cambiar</button>
-          <button class="btn mini ghost" data-act="scan">Refrescar</button>
-          <button class="btn mini ghost" data-act="del">Eliminar</button>
+          <button class="btn mini ghost" data-act="edit">${icon("edit", "ic-sm")}Cambiar</button>
+          <button class="btn mini ghost" data-act="scan">${icon("refresh", "ic-sm")}Refrescar</button>
+          <button class="btn mini ghost" data-act="del">${icon("trash", "ic-sm")}Eliminar</button>
         </div>
       </div>
       <div class="whsub">
-        <span class="date">${fechas}</span>
-        <span class="dot-sep"></span>${IC.user}${plural(w.adults, "adulto")}
-        <span class="dot-sep"></span><span title="${esc(BAG.detail(w.bag_level))}">${esc(equipaje)}</span>
+        ${icon("calendar", "ic-sm")}<span class="date">${fechas}</span>
+        <span class="dot-sep"></span>${icon("user", "ic-sm")}${plural(w.adults, "adulto")}
+        <span class="dot-sep"></span>${icon(w.bag_level, "ic-sm")}<span
+          title="${esc(BAG.detail(w.bag_level))}">${esc(equipaje)}</span>
         <span class="dot-sep"></span>aviso si el total baja de ${money(w.max_price)}
       </div>
     </div>
     ${panelMejorCompra(w)}
     ${bloqueAlternativas(w)}
-    <div class="airlines">${AEROLINEAS.map((a) => bloqueAerolinea(w, a)).join("")}</div>
+    <div class="airlines">${AEROLINEAS.map((a) => bloqueAerolinea(w, a, minTramo)).join("")}</div>
     <div class="foot muted small">
       Precios por pasajero y por trayecto${
         hayEstimados ? " · <b>≈</b> costo de equipaje no leído en ese vuelo exacto" : ""

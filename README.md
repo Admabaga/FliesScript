@@ -70,6 +70,37 @@ Imperva redirige a Playwright estándar a la home.
 Para no despertar a los anti-bots: **perfil de navegador persistente**, consultas
 espaciadas y reintentos con backoff.
 
+## Diseño
+
+Paleta **Midnight Gala Luxe**: navy profundo (`#060f22`, `#0b1a33`, `#12264f`),
+oro (`#d4af37`) y marfil (`#f4f1e8`). Regla que sostiene todo: **el oro se
+reserva para el precio que conviene** — la mejor compra, el vuelo más barato de
+cada tramo y el botón de comprar. Lo demás es navy y marfil para que el ojo vaya
+al número.
+
+Sobre eso, un **semáforo de precio** que responde "¿esto está barato o qué?" sin
+tener que restar de cabeza:
+
+| Color | Significa |
+|---|---|
+| oro | lo más barato del tramo o de la búsqueda |
+| verde | hasta 8% más caro: está ahí mismo |
+| ámbar | entre 8% y 25% más caro |
+| rojo apagado | más de 25% más caro |
+
+Las *otras combinaciones* muestran además la diferencia exacta contra la mejor
+compra (`+$133.816 · 14%`), y cada vuelo marca **el más barato** de su tramo.
+
+Tipografía: **Fraunces** (serif variable) para la marca y los totales, **Inter**
+para la interfaz, con cifras tabulares en todo lo que sea plata. Iconos de
+**Lucide** empotrados en `static/js/icons.js`: se copian los ~20 trazos que se
+usan en vez de cargar la librería desde un CDN, así la app no depende de que
+unpkg esté vivo ni suma 70 KB en una conexión móvil.
+
+Sin framework de frontend a propósito: es una sola pantalla, los cálculos ya
+vienen resueltos del backend y meter React obligaría a sumar un toolchain de Node
+a la imagen de Docker sin cambiar nada de lo que ve el usuario.
+
 ## Cómo está organizado el código
 
 Cada archivo tiene un trabajo y solo uno; así se cambia una cosa sin leerlo todo.
