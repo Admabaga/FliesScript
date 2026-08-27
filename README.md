@@ -91,8 +91,10 @@ tener que restar de cabeza:
 Las *otras combinaciones* muestran además la diferencia exacta contra la mejor
 compra (`+$133.816 · 14%`), y cada vuelo marca **el más barato** de su tramo.
 
-Tipografía: **Fraunces** (serif variable) para la marca y los totales, **Inter**
-para la interfaz, con cifras tabulares en todo lo que sea plata. Iconos de
+Tipografía: **Geist** para la interfaz (cifras tabulares impecables, que es lo
+que importa cuando todo son precios) e **Instrument Serif** para la marca y los
+títulos de ruta — editorial y actual, sin caer en el serif clásico. El total
+grande va en Geist 700 con tracking cerrado: se lee mejor que un serif fino. Iconos de
 **Lucide** empotrados en `static/js/icons.js`: se copian los ~20 trazos que se
 usan en vez de cargar la librería desde un CDN, así la app no depende de que
 unpkg esté vivo ni suma 70 KB en una conexión móvil.

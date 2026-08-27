@@ -51,8 +51,10 @@
   --ease: cubic-bezier(0.2, 0.7, 0.3, 1);
 
   /* ---- tipografía ---- */
-  --ui: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  --display: "Fraunces", "Iowan Old Style", Georgia, serif;
+  /* Geist para la interfaz (cifras tabulares impecables) e Instrument Serif
+     para marca y títulos: editorial y moderno, sin caer en el serif clásico. */
+  --ui: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --display: "Instrument Serif", "Iowan Old Style", Georgia, serif;
 }
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -62,7 +64,8 @@ body {
   margin: 0;
   color: var(--txt);
   font: 400 15.5px/1.55 var(--ui);
-  font-feature-settings: "cv05" 1, "ss01" 1;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
   background:
     radial-gradient(900px 420px at 88% -8%, rgba(212, 175, 55, 0.1), transparent 62%),
     radial-gradient(1000px 520px at 10% -12%, var(--navy-700) 0%, transparent 60%),
@@ -89,9 +92,9 @@ header {
   border-bottom: 1px solid var(--line);
 }
 .brand {
-  display: flex; align-items: center; gap: 9px; margin-right: auto;
-  font-family: var(--display);
-  font-weight: 600; font-size: 23px; letter-spacing: -0.2px;
+  display: flex; align-items: center; gap: 10px; margin-right: auto;
+  font-family: var(--display); font-weight: 400; font-size: 26px;
+  letter-spacing: 0; line-height: 1;
 }
 .brand .ic { color: var(--gold); }
 .scanbar {
@@ -233,7 +236,8 @@ a.btn { text-decoration: none; }
 .wh { display: grid; gap: 8px; padding: var(--pad); border-bottom: 1px solid var(--line); }
 .whtop { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
 .wh .route {
-  font-family: var(--display); font-weight: 600; font-size: 21px; letter-spacing: -0.2px;
+  font-family: var(--display); font-weight: 400; font-size: 24px;
+  letter-spacing: 0; line-height: 1.15;
 }
 .wh .codes { font-size: 11.5px; letter-spacing: 1px; text-transform: uppercase; }
 .whsub {
@@ -265,7 +269,8 @@ a.btn { text-decoration: none; }
 }
 .best.hit .btitle { color: var(--good); }
 .btotal {
-  font-family: var(--display); font-weight: 700; font-size: 30px; letter-spacing: -0.5px;
+  font-weight: 700; font-size: 29px; letter-spacing: -0.045em;
+  font-variant-numeric: tabular-nums;
   color: var(--gold); line-height: 1;
 }
 .best.hit .btotal { color: var(--good); }
@@ -459,7 +464,7 @@ dialog {
 dialog::backdrop { background: rgba(3, 8, 20, 0.72); backdrop-filter: blur(4px); }
 #cfgForm { display: block; }
 dialog h2 {
-  margin: 0 0 16px; font-family: var(--display); font-weight: 600; font-size: 21px;
+  margin: 0 0 16px; font-family: var(--display); font-weight: 400; font-size: 24px;
 }
 label.full { display: block; margin-bottom: 6px; }
 .wabox {
@@ -483,15 +488,15 @@ label.full { display: block; margin-bottom: 6px; }
 @media (max-width: 680px) {
   :root { --pad: 13px; }
   .lbl { display: none; }
-  .brand { font-size: 20px; }
+  .brand { font-size: 23px; }
   .airlines { grid-template-columns: 1fr; }
-  .wh .route { font-size: 19px; }
+  .wh .route { font-size: 21px; }
   .grid2, .frow { grid-template-columns: 1fr; }
   .btn.mini { flex: 1; }
   .wh .acts { width: 100%; }
   .whsub { column-gap: 12px; }
   .whsub .dot-sep { display: none; }
-  .btotal { font-size: 26px; }
+  .btotal { font-size: 25px; }
   .alt { gap: 8px; }
   .alt .alinks { width: 100%; }
   .alt .alinks .btn { flex: 1; }
